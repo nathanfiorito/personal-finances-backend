@@ -32,7 +32,7 @@ Apresentar ao usuário os dados extraídos + categoria antes de persistir, e agu
 
 ### Estado Temporário
 
-- [ ] Criar `PendingExpense` para armazenar despesa aguardando confirmação:
+- [ X ] Criar `PendingExpense` para armazenar despesa aguardando confirmação:
   ```python
   class PendingExpense(BaseModel):
       extracted: ExtractedExpense
@@ -40,39 +40,39 @@ Apresentar ao usuário os dados extraídos + categoria antes de persistir, e agu
       message_id: int  # para editar a mensagem original
       created_at: datetime
   ```
-- [ ] Criar store in-memory simples: `dict[int, PendingExpense]` keyed por `chat_id`
-- [ ] TTL de 10 minutos — expirar pendências antigas automaticamente
+- [ X ] Criar store in-memory simples: `dict[int, PendingExpense]` keyed por `chat_id`
+- [ X ] TTL de 10 minutos — expirar pendências antigas automaticamente
 
 ### Handler de Confirmação (`src/handlers/message.py`)
 
-- [ ] Após extração + categorização, formatar e enviar mensagem de confirmação com `InlineKeyboardMarkup`:
+- [ X ] Após extração + categorização, formatar e enviar mensagem de confirmação com `InlineKeyboardMarkup`:
   - Botão `✅ Confirmar` → callback `confirm:{chat_id}`
   - Botão `✏️ Editar categoria` → callback `edit_category:{chat_id}`
   - Botão `❌ Cancelar` → callback `cancel:{chat_id}`
 
 ### Handler de Callbacks (`src/handlers/callback.py`)
 
-- [ ] `handle_confirm(chat_id)`:
+- [ X ] `handle_confirm(chat_id)`:
   - Recuperar `PendingExpense` do store
   - Chamar `database.save_expense()`
   - Editar mensagem original com confirmação de sucesso
   - Remover do store
 
-- [ ] `handle_cancel(chat_id)`:
+- [ X ] `handle_cancel(chat_id)`:
   - Remover do store
   - Editar mensagem com "Despesa cancelada."
 
-- [ ] `handle_edit_category(chat_id)`:
+- [ X ] `handle_edit_category(chat_id)`:
   - Enviar novo inline keyboard com as 10 categorias listadas
   - Callback de seleção: `set_category:{chat_id}:{categoria}`
   - Após seleção: atualizar `PendingExpense` e reapresentar tela de confirmação
 
 ### Testes
 
-- [ ] Teste de confirmação: verificar que `save_expense` é chamado com dados corretos
-- [ ] Teste de cancelamento: verificar que pending é removido e banco não é chamado
-- [ ] Teste de edição de categoria: verificar que categoria é atualizada antes de salvar
-- [ ] Teste de expiração: pendência com > 10 min deve ser ignorada
+- [ X ] Teste de confirmação: verificar que `save_expense` é chamado com dados corretos
+- [ X ] Teste de cancelamento: verificar que pending é removido e banco não é chamado
+- [ X ] Teste de edição de categoria: verificar que categoria é atualizada antes de salvar
+- [ X ] Teste de expiração: pendência com > 10 min deve ser ignorada
 
 ## Critérios de Aceite
 
