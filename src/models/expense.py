@@ -43,6 +43,7 @@ class Expense(BaseModel):
     estabelecimento: str | None
     descricao: str | None
     categoria: str
+    categoria_id: int | None = None
     cnpj: str | None
     tipo_entrada: str
     confianca: float | None

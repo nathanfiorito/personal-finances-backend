@@ -61,3 +61,32 @@ INSERT INTO categories (nome) VALUES
     ('Transporte'),
     ('Vestuário')
 ON CONFLICT (nome) DO NOTHING;
+
+-- ============================================================
+-- Migration: FK expenses.categoria_id → categories.id
+-- Run this AFTER the initial schema and seed above.
+-- ============================================================
+
+-- 1. Add nullable FK column
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS categoria_id INT REFERENCES categories(id);
+
+-- 2. Populate from existing text column (match by name)
+UPDATE expenses
+SET categoria_id = (
+    SELECT id FROM categories WHERE nome = expenses.categoria
+)
+WHERE categoria_id IS NULL;
+
+-- 3. Fallback: rows that didn't match any category → "Outros"
+UPDATE expenses
+SET categoria_id = (SELECT id FROM categories WHERE nome = 'Outros')
+WHERE categoria_id IS NULL;
+
+-- 4. Enforce NOT NULL now that all rows are filled
+ALTER TABLE expenses ALTER COLUMN categoria_id SET NOT NULL;
+
+-- 5. Index for join performance
+CREATE INDEX IF NOT EXISTS idx_expenses_categoria_id ON expenses(categoria_id);
+
+-- 6. Drop the old text column
+ALTER TABLE expenses DROP COLUMN IF EXISTS categoria;

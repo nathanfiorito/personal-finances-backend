@@ -26,7 +26,8 @@ def _expense_row(id_: str = "550e8400-e29b-41d4-a716-446655440000", categoria: s
         "data": "2024-01-15",
         "estabelecimento": "Supermercado Extra",
         "descricao": "Compras do mês",
-        "categoria": categoria,
+        "categoria_id": 1,
+        "categories": {"nome": categoria},
         "cnpj": None,
         "tipo_entrada": "texto",
         "confianca": 0.9,
@@ -63,7 +64,12 @@ def _mock_supabase() -> MagicMock:
     mock = MagicMock()
     # insert chain
     mock.table.return_value.insert.return_value.execute = AsyncMock()
-    # select chain: .select().gte().lte().order().execute()
+    # category id lookup: .select().eq().limit().execute()
+    mock.table.return_value.select.return_value \
+        .eq.return_value \
+        .limit.return_value \
+        .execute = AsyncMock(return_value=MagicMock(data=[{"id": 1}]))
+    # expenses select chain: .select().gte().lte().order().execute()
     mock.table.return_value.select.return_value \
         .gte.return_value \
         .lte.return_value \
@@ -103,7 +109,7 @@ class TestSaveExpense:
         inserted = mock_client.table.return_value.insert.call_args[0][0]
         assert inserted["valor"] == "45.90"
         assert inserted["data"] == "2024-01-15"
-        assert inserted["categoria"] == "Alimentação"
+        assert inserted["categoria_id"] == 1
         assert inserted["tipo_entrada"] == "texto"
         assert inserted["confianca"] == 0.9
         assert inserted["estabelecimento"] == "Supermercado Extra"

@@ -19,14 +19,30 @@ async def _get_client() -> AsyncClient:
     return _client
 
 
+async def _get_category_id(client: AsyncClient, nome: str) -> int | None:
+    response = await client.table("categories").select("id").eq("nome", nome).limit(1).execute()
+    if response.data:
+        return response.data[0]["id"]
+    return None
+
+
+def _parse_expense_row(row: dict) -> Expense:
+    row = dict(row)
+    categories_data = row.pop("categories", None)
+    if categories_data:
+        row["categoria"] = categories_data["nome"]
+    return Expense(**row)
+
+
 async def save_expense(expense: ExtractedExpense, categoria: str) -> str:
     client = await _get_client()
+    categoria_id = await _get_category_id(client, categoria)
     record = {
         "valor": str(expense.valor),
         "data": expense.data.isoformat(),
         "estabelecimento": expense.estabelecimento,
         "descricao": expense.descricao,
-        "categoria": categoria,
+        "categoria_id": categoria_id,
         "cnpj": expense.cnpj,
         "tipo_entrada": expense.tipo_entrada,
         "confianca": expense.confianca,
@@ -40,25 +56,25 @@ async def get_recent_expenses(limit: int = 3) -> list[Expense]:
     client = await _get_client()
     response = (
         await client.table("expenses")
-        .select("*")
+        .select("*, categories(nome)")
         .order("created_at", desc=True)
         .limit(limit)
         .execute()
     )
-    return [Expense(**row) for row in response.data]
+    return [_parse_expense_row(row) for row in response.data]
 
 
 async def get_expenses_by_period(start: date, end: date) -> list[Expense]:
     client = await _get_client()
     response = (
         await client.table("expenses")
-        .select("*")
+        .select("*, categories(nome)")
         .gte("data", start.isoformat())
         .lte("data", end.isoformat())
         .order("data")
         .execute()
     )
-    return [Expense(**row) for row in response.data]
+    return [_parse_expense_row(row) for row in response.data]
 
 
 async def add_category(nome: str) -> None:
