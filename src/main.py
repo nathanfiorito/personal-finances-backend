@@ -1,7 +1,9 @@
+import ipaddress
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -17,6 +19,22 @@ logger = logging.getLogger(__name__)
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 
+# Telegram Bot API sends webhooks from these IP ranges
+# https://core.telegram.org/bots/webhooks#the-short-version
+TELEGRAM_IP_RANGES = [
+    ipaddress.ip_network("149.154.160.0/20"),
+    ipaddress.ip_network("91.108.4.0/22"),
+]
+
+
+def _is_telegram_ip(ip_str: str) -> bool:
+    """Check if an IP address belongs to Telegram's known ranges."""
+    try:
+        addr = ipaddress.ip_address(ip_str)
+        return any(addr in net for net in TELEGRAM_IP_RANGES)
+    except ValueError:
+        return False
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,6 +48,15 @@ app = FastAPI(title="FinBot", docs_url=None, redoc_url=None, lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# CORS: only allow requests from the frontend domain
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"https://([a-zA-Z0-9-]+\.)*nathanfiorito\.com\.br",
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+    allow_credentials=False,
+)
+
 
 @app.get("/health")
 async def health() -> dict:
@@ -39,13 +66,21 @@ async def health() -> dict:
 @app.post("/webhook")
 @limiter.limit("30/minute")
 async def webhook(request: Request) -> dict:
+    # 1. Validate Telegram secret token
     secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
     if secret != settings.telegram_webhook_secret:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    # 2. Validate source IP is from Telegram
+    client_ip = request.headers.get("CF-Connecting-IP") or request.client.host
+    if not _is_telegram_ip(client_ip):
+        logger.warning("Webhook chamado de IP não-Telegram: %s", client_ip)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     update = await request.json()
     logger.debug("Update recebido: %s", update)
 
+    # 3. Validate chat_id is authorized (single-user bot)
     chat_id = _extract_chat_id(update)
     if chat_id is not None and chat_id != settings.telegram_allowed_chat_id:
         logger.warning("Update ignorado de chat_id não autorizado: %d", chat_id)

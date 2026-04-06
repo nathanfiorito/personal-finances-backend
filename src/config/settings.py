@@ -20,4 +20,5 @@ class Settings(BaseSettings):
     supabase_service_key: str = ""
 
 
+
 settings = Settings()

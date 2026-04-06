@@ -7,15 +7,17 @@ Bot pessoal no Telegram para registro e categorização automática de despesas 
 - Recebe comprovantes de pagamento (foto), notas fiscais (PDF) ou texto livre via Telegram
 - Extrai automaticamente: valor, data, estabelecimento, descrição
 - Categoriza a despesa com IA (Alimentação, Transporte, Saúde, etc.)
-- Pede confirmação antes de salvar
+- Detecta possíveis despesas duplicadas antes de salvar
+- Pede confirmação antes de salvar (permite editar a categoria)
 - Gera relatórios financeiros por período
+- Exporta despesas em CSV
 
 ## Stack
 
 | Componente | Tecnologia |
 |---|---|
 | Backend | Python 3.12+ / FastAPI |
-| Bot | python-telegram-bot |
+| Bot | httpx (HTTP direto para Telegram Bot API, webhook mode) |
 | LLM | Claude Sonnet 4.6 + Haiku 4.5 via OpenRouter |
 | Banco de Dados | PostgreSQL (Supabase) |
 | Infra | Render (hosting) + Cloudflare (DNS/Tunnel) |
@@ -23,46 +25,50 @@ Bot pessoal no Telegram para registro e categorização automática de despesas 
 ## Estrutura do Projeto
 
 ```
-finbot/
+telegram-finances/
 ├── src/
 │   ├── agents/               # Agentes de IA
-│   │   ├── __init__.py
-│   │   ├── extractor.py      # Agente Extrator (visão + texto)
-│   │   ├── categorizer.py    # Agente Categorizador
-│   │   └── reporter.py       # Agente de Relatórios
+│   │   ├── extractor.py      # Extrai dados de imagens, PDFs e texto
+│   │   ├── categorizer.py    # Classifica despesa em categoria
+│   │   ├── duplicate_checker.py  # Detecta possíveis duplicatas via LLM
+│   │   └── reporter.py       # Gera relatórios financeiros
 │   ├── services/             # Serviços externos
-│   │   ├── __init__.py
-│   │   ├── telegram.py       # Telegram Bot API wrapper
-│   │   ├── llm.py            # OpenRouter client
+│   │   ├── telegram.py       # Telegram Bot API wrapper (httpx)
+│   │   ├── llm.py            # OpenRouter client com retry
 │   │   └── database.py       # Supabase client
 │   ├── models/               # Modelos de dados
-│   │   ├── __init__.py
-│   │   └── expense.py        # Pydantic models (Expense, Category, etc.)
+│   │   ├── expense.py        # Pydantic models (ExtractedExpense, Expense)
+│   │   └── pending.py        # Store in-memory de despesas pendentes (TTL 10min)
 │   ├── handlers/             # Handlers do Telegram
-│   │   ├── __init__.py
-│   │   ├── message.py        # Handler de mensagens (foto/texto)
-│   │   ├── callback.py       # Handler de callbacks (inline keyboards)
-│   │   └── commands.py       # Handler de comandos (/relatorio, /start, etc.)
-│   ├── config/               # Configuração
-│   │   ├── __init__.py
+│   │   ├── message.py        # Router principal (foto/texto/PDF/comando)
+│   │   ├── callback.py       # Callbacks de inline keyboards
+│   │   └── commands.py       # Comandos (/relatorio, /exportar, /categorias, etc.)
+│   ├── config/
 │   │   └── settings.py       # Pydantic Settings (env vars)
-│   ├── scheduler/            # Tarefas agendadas
-│   │   ├── __init__.py
-│   │   └── reports.py        # Cron de relatório mensal
-│   └── main.py               # Entrypoint FastAPI + webhook setup
+│   ├── scheduler/
+│   │   └── reports.py        # Cron de relatório mensal (APScheduler)
+│   └── main.py               # Entrypoint FastAPI + webhook
 ├── tests/
+│   ├── conftest.py
 │   ├── test_extractor.py
 │   ├── test_categorizer.py
-│   └── test_models.py
+│   ├── test_duplicate_checker.py
+│   ├── test_reporter.py
+│   ├── test_database.py
+│   ├── test_callback.py
+│   ├── test_commands.py
+│   ├── test_scheduler.py
+│   └── test_webhook.py
 ├── docs/
+│   ├── API.md                # Referência de API, dados e banco (para frontend)
 │   ├── ARCHITECTURE.md
 │   ├── ARCHITECTURE-DIAGRAM.md
-│   ├── POC.md
 │   ├── MVP-ROADMAP.md
 │   ├── INFRA-COSTS.md
-│   └── SECURITY-CHECKLIST.md
+│   ├── SECURITY-CHECKLIST.md
+│   ├── POC.md
+│   └── supabase_schema.sql
 ├── .env.example
-├── .gitignore
 ├── requirements.txt
 ├── pyproject.toml
 ├── Dockerfile
@@ -127,19 +133,26 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
 | Comando | Descrição |
 |---|---|
 | `/start` | Mensagem de boas-vindas |
-| `/relatorio semana` | Relatório dos últimos 7 dias |
-| `/relatorio mes` | Relatório do mês corrente |
-| `/categorias` | Listar categorias disponíveis (Pós-MVP) |
 | `/ajuda` | Lista de comandos disponíveis |
+| `/relatorio` | Relatório do mês corrente |
+| `/relatorio semana` | Relatório dos últimos 7 dias |
+| `/relatorio anterior` | Relatório do mês anterior |
+| `/relatorio MM/AAAA` | Relatório de mês específico (ex: `03/2025`) |
+| `/exportar` | Exportar despesas do mês corrente como CSV |
+| `/exportar anterior` | CSV do mês anterior |
+| `/exportar MM/AAAA` | CSV de mês específico |
+| `/categorias` | Listar categorias ativas |
+| `/categorias add <nome>` | Adicionar nova categoria |
 
 ## Documentação
 
+- [API Reference](docs/API.md) — endpoints, modelos de dados e schema do banco (referência para frontend)
 - [Arquitetura](docs/ARCHITECTURE.md)
 - [Diagramas](docs/ARCHITECTURE-DIAGRAM.md)
-- [POC](docs/POC.md)
 - [MVP Roadmap](docs/MVP-ROADMAP.md)
 - [Custos de Infra](docs/INFRA-COSTS.md)
 - [Checklist de Segurança](docs/SECURITY-CHECKLIST.md)
+- [POC](docs/POC.md)
 
 ## Licença
 

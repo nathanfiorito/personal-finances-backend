@@ -6,10 +6,10 @@
 |---|---|---|---|
 | **Render** (FastAPI) | 1 web service always-on | Grátis (750h/mês com spin-down) | $7/mês (Starter) |
 | **Supabase** (PostgreSQL) | ~500 registros/mês, < 50MB | Grátis (500MB DB, 1GB storage) | $25/mês (Pro) |
-| **OpenRouter** (LLM) | ~100 chamadas extração + categorização | — | ~$0.76/mês |
+| **OpenRouter** (LLM) | ~300 chamadas/mês | — | ~$0.88/mês |
 | **Cloudflare** (DNS/Tunnel) | DNS + tunnel | Grátis | Grátis |
 | **Domínio** (opcional) | 1 domínio .com.br | — | ~R$ 40/ano (~R$ 3.3/mês) |
-| **Total estimado** | | **~$0.76/mês (~R$ 4.50)** | **~$33/mês (~R$ 190)** |
+| **Total estimado** | | **~$0.88/mês (~R$ 5.20)** | **~$33/mês (~R$ 190)** |
 
 ## Detalhamento OpenRouter
 
@@ -18,10 +18,11 @@
 | Extrator (imagem) | Sonnet 4.6 ($3/$15 por 1M) | 70 | 105K | 14K | $0.53 |
 | Extrator (texto) | Haiku 4.5 ($1/$5 por 1M) | 30 | 15K | 6K | $0.045 |
 | Categorizador | Haiku 4.5 ($1/$5 por 1M) | 100 | 30K | 10K | $0.08 |
+| Verificador de duplicatas | Haiku 4.5 ($1/$5 por 1M) | 100 | 20K | 8K | $0.06 |
 | Relatórios | Sonnet 4.6 ($3/$15 por 1M) | 4 | 8K | 4K | $0.084 |
-| **Subtotal tokens** | | **204** | **158K** | **34K** | **$0.72** |
-| **Taxa OpenRouter (5.5%)** | | | | | **$0.04** |
-| **Total OpenRouter** | | | | | **$0.76** |
+| **Subtotal tokens** | | **304** | **178K** | **42K** | **$0.80** |
+| **Taxa OpenRouter (5.5%)** | | | | | **$0.044** |
+| **Total OpenRouter** | | | | | **$0.84** |
 
 ## Notas
 
@@ -39,5 +40,5 @@
 ### Quando sairia do Free Tier
 - **Render:** se precisar de always-on sem workaround → $7/mês
 - **Supabase:** se ultrapassar 500MB de DB ou precisar de backups → $25/mês
-- **OpenRouter:** escala linear — se registrar 500 despesas/mês, custo sobe para ~$3.80/mês
+- **OpenRouter:** escala linear — se registrar 500 despesas/mês, custo sobe para ~$4.40/mês
 - **Cenário realista:** projeto permanece no free tier por 1-2 anos com uso pessoal normal

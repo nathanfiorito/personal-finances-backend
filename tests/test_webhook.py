@@ -1,12 +1,14 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from src.main import app, _extract_chat_id
+from src.main import app, _extract_chat_id, _is_telegram_ip
 
 client = TestClient(app)
 
 VALID_SECRET = "test-secret"
 ALLOWED_CHAT_ID = 12345
+# Use a Telegram IP from the 149.154.160.0/20 range
+TELEGRAM_IP = "149.154.167.1"
 HEADERS = {"X-Telegram-Bot-Api-Secret-Token": VALID_SECRET}
 
 
@@ -22,6 +24,12 @@ def patch_settings(monkeypatch):
 
 
 # --- Helpers ---
+
+def _post_webhook(json, headers=HEADERS, client_ip=TELEGRAM_IP):
+    """Send a POST to /webhook with a simulated source IP via CF-Connecting-IP."""
+    all_headers = {**headers, "CF-Connecting-IP": client_ip}
+    return client.post("/webhook", json=json, headers=all_headers)
+
 
 def _message_update(chat_id: int, **message_fields) -> dict:
     return {
@@ -69,33 +77,109 @@ def _callback_update(chat_id: int, data: str) -> dict:
 
 class TestSecurity:
     def test_missing_secret_returns_403(self):
-        response = client.post("/webhook", json=_text_update(ALLOWED_CHAT_ID, "oi"))
-        assert response.status_code == 403
-
-    def test_wrong_secret_returns_403(self):
         response = client.post(
             "/webhook",
             json=_text_update(ALLOWED_CHAT_ID, "oi"),
+            headers={"CF-Connecting-IP": TELEGRAM_IP},
+        )
+        assert response.status_code == 403
+
+    def test_wrong_secret_returns_403(self):
+        response = _post_webhook(
+            _text_update(ALLOWED_CHAT_ID, "oi"),
             headers={"X-Telegram-Bot-Api-Secret-Token": "wrong"},
         )
         assert response.status_code == 403
 
     def test_valid_secret_returns_200(self, mocker):
-        # Patch where main.py bound the reference
         mocker.patch("src.main.handle_update")
-        response = client.post("/webhook", json=_text_update(ALLOWED_CHAT_ID, "oi"), headers=HEADERS)
+        response = _post_webhook(_text_update(ALLOWED_CHAT_ID, "oi"))
         assert response.status_code == 200
 
     def test_unauthorized_chat_id_ignored(self, mocker):
         mock_handle = mocker.patch("src.main.handle_update")
-        response = client.post("/webhook", json=_text_update(99999, "oi"), headers=HEADERS)
+        response = _post_webhook(_text_update(99999, "oi"))
         assert response.status_code == 200
         mock_handle.assert_not_called()
 
     def test_authorized_chat_id_processed(self, mocker):
         mock_handle = mocker.patch("src.main.handle_update")
-        client.post("/webhook", json=_text_update(ALLOWED_CHAT_ID, "oi"), headers=HEADERS)
+        _post_webhook(_text_update(ALLOWED_CHAT_ID, "oi"))
         mock_handle.assert_called_once()
+
+    def test_non_telegram_ip_returns_403(self, mocker):
+        mocker.patch("src.main.handle_update")
+        response = _post_webhook(
+            _text_update(ALLOWED_CHAT_ID, "oi"),
+            client_ip="1.2.3.4",
+        )
+        assert response.status_code == 403
+
+    def test_telegram_ip_range_1_accepted(self, mocker):
+        mocker.patch("src.main.handle_update")
+        response = _post_webhook(
+            _text_update(ALLOWED_CHAT_ID, "oi"),
+            client_ip="149.154.175.255",
+        )
+        assert response.status_code == 200
+
+    def test_telegram_ip_range_2_accepted(self, mocker):
+        mocker.patch("src.main.handle_update")
+        response = _post_webhook(
+            _text_update(ALLOWED_CHAT_ID, "oi"),
+            client_ip="91.108.4.1",
+        )
+        assert response.status_code == 200
+
+
+# --- IP Validation ---
+
+class TestTelegramIP:
+    def test_telegram_ip_in_range_1(self):
+        assert _is_telegram_ip("149.154.167.220") is True
+
+    def test_telegram_ip_in_range_2(self):
+        assert _is_telegram_ip("91.108.5.100") is True
+
+    def test_non_telegram_ip(self):
+        assert _is_telegram_ip("8.8.8.8") is False
+
+    def test_localhost_not_telegram(self):
+        assert _is_telegram_ip("127.0.0.1") is False
+
+    def test_invalid_ip_returns_false(self):
+        assert _is_telegram_ip("not-an-ip") is False
+
+
+# --- CORS ---
+
+class TestCORS:
+    @pytest.mark.parametrize("origin", [
+        "https://nathanfiorito.com.br",
+        "https://www.nathanfiorito.com.br",
+        "https://app.nathanfiorito.com.br",
+        "https://api.nathanfiorito.com.br",
+        "https://finbot.nathanfiorito.com.br",
+    ])
+    def test_cors_allowed_subdomains(self, origin):
+        response = client.options(
+            "/health",
+            headers={"Origin": origin, "Access-Control-Request-Method": "GET"},
+        )
+        assert response.headers.get("access-control-allow-origin") == origin
+
+    @pytest.mark.parametrize("origin", [
+        "https://evil.com",
+        "https://nathanfiorito.com.br.evil.com",
+        "https://fakenathafiorito.com.br",
+        "http://nathanfiorito.com.br",
+    ])
+    def test_cors_rejected_origins(self, origin):
+        response = client.options(
+            "/health",
+            headers={"Origin": origin, "Access-Control-Request-Method": "GET"},
+        )
+        assert response.headers.get("access-control-allow-origin") is None
 
 
 # --- Roteamento ---
@@ -103,35 +187,34 @@ class TestSecurity:
 class TestRouting:
     @pytest.fixture(autouse=True)
     def mock_telegram(self, mocker):
-        # Evita chamadas reais à API do Telegram em todos os testes de roteamento
         mocker.patch("src.handlers.message.telegram.send_message")
         mocker.patch("src.handlers.message.telegram.answer_callback")
 
     def test_text_message_calls_handle_text(self, mocker):
         mock_text = mocker.patch("src.handlers.message.handle_text")
-        client.post("/webhook", json=_text_update(ALLOWED_CHAT_ID, "gastei 50 no mercado"), headers=HEADERS)
+        _post_webhook(_text_update(ALLOWED_CHAT_ID, "gastei 50 no mercado"))
         mock_text.assert_called_once_with(ALLOWED_CHAT_ID, "gastei 50 no mercado")
 
     def test_command_calls_dispatch(self, mocker):
         mock_dispatch = mocker.patch("src.handlers.message.dispatch_command")
-        client.post("/webhook", json=_text_update(ALLOWED_CHAT_ID, "/start"), headers=HEADERS)
+        _post_webhook(_text_update(ALLOWED_CHAT_ID, "/start"))
         mock_dispatch.assert_called_once_with(ALLOWED_CHAT_ID, "/start")
 
     def test_photo_calls_handle_photo(self, mocker):
         mock_photo = mocker.patch("src.handlers.message.handle_photo")
-        client.post("/webhook", json=_photo_update(ALLOWED_CHAT_ID), headers=HEADERS)
+        _post_webhook(_photo_update(ALLOWED_CHAT_ID))
         mock_photo.assert_called_once()
         assert mock_photo.call_args[0][0] == ALLOWED_CHAT_ID
 
     def test_pdf_calls_handle_pdf(self, mocker):
         mock_pdf = mocker.patch("src.handlers.message.handle_pdf")
-        client.post("/webhook", json=_pdf_update(ALLOWED_CHAT_ID), headers=HEADERS)
+        _post_webhook(_pdf_update(ALLOWED_CHAT_ID))
         mock_pdf.assert_called_once()
         assert mock_pdf.call_args[0][0] == ALLOWED_CHAT_ID
 
     def test_callback_query_calls_handle_callback(self, mocker):
         mock_cb = mocker.patch("src.handlers.callback.handle_callback", new_callable=mocker.AsyncMock)
-        client.post("/webhook", json=_callback_update(ALLOWED_CHAT_ID, "confirm:12345"), headers=HEADERS)
+        _post_webhook(_callback_update(ALLOWED_CHAT_ID, "confirm:12345"))
         mock_cb.assert_called_once()
 
     def test_largest_photo_selected(self):
