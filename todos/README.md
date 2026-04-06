@@ -41,8 +41,8 @@ Objetivo: validar extração de dados de comprovantes com Claude Sonnet 4.6 via 
 
 | # | Tarefa | Status |
 |---|---|---|
-| C1 | [Comando /categorias](./mvp/could/09-comando-categorias.md) | ⬜ |
-| C2 | [Exportação CSV/Excel](./mvp/could/10-exportacao-csv.md) | ⬜ |
+| C1 | [Comando /categorias](./mvp/could/09-comando-categorias.md) | ✅ |
+| C2 | [Exportação CSV/Excel](./mvp/could/10-exportacao-csv.md) | ✅ |
 
 ---
 

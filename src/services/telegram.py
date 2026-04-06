@@ -82,6 +82,24 @@ async def answer_callback(callback_query_id: str, text: str = "") -> dict:
         return response.json()
 
 
+async def send_document(
+    chat_id: int,
+    content: bytes,
+    filename: str,
+    caption: str = "",
+    mime_type: str = "text/csv",
+) -> dict:
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{TELEGRAM_API}/sendDocument",
+            data={"chat_id": str(chat_id), "caption": caption, "parse_mode": "HTML"},
+            files={"document": (filename, content, mime_type)},
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response.json()
+
+
 async def get_file(file_id: str) -> bytes:
     async with httpx.AsyncClient() as client:
         # Get file path

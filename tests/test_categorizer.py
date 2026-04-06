@@ -3,6 +3,7 @@ from datetime import date
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
+import src.agents.categorizer as categorizer_module
 from src.agents.categorizer import categorize, CATEGORIES
 from src.models.expense import ExtractedExpense
 
@@ -15,6 +16,16 @@ def _expense(estabelecimento: str | None = None, descricao: str | None = None) -
         descricao=descricao,
         tipo_entrada="texto",
     )
+
+
+@pytest.fixture(autouse=True)
+def reset_categories_cache():
+    """Reset the in-memory category cache between tests."""
+    categorizer_module._categories_cache = None
+    categorizer_module._cache_expires_at = 0.0
+    yield
+    categorizer_module._categories_cache = None
+    categorizer_module._cache_expires_at = 0.0
 
 
 class TestCategorize:

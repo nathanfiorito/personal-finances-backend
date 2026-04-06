@@ -2,7 +2,7 @@ import pytest
 from datetime import date, timedelta
 from unittest.mock import AsyncMock, patch
 
-from src.handlers.commands import dispatch_command, handle_relatorio, _parse_periodo
+from src.handlers.commands import dispatch_command, handle_relatorio, handle_exportar, handle_categorias, _parse_periodo, _generate_csv
 
 
 CHAT_ID = 12345
@@ -164,3 +164,111 @@ class TestHandleRelatorio:
         await handle_relatorio(CHAT_ID, ["mes"])
         assert mock_send.call_count == 2
         assert "📊 Relatório aqui" in mock_send.call_args[0][1]
+
+
+class TestHandleExportar:
+    @pytest.mark.asyncio
+    async def test_sends_csv_document(self, mocker):
+        from datetime import datetime
+        from decimal import Decimal
+        from src.models.expense import Expense
+        expense = Expense(
+            id="550e8400-e29b-41d4-a716-446655440001",
+            valor=Decimal("50.00"), data=date(2025, 3, 10),
+            estabelecimento="Mercado", descricao=None, categoria="Alimentação",
+            cnpj=None, tipo_entrada="texto", confianca=0.9,
+            created_at=datetime(2025, 3, 10, 10, 0, 0),
+        )
+        mocker.patch("src.services.database.get_expenses_by_period", new_callable=AsyncMock, return_value=[expense])
+        mock_doc = mocker.patch("src.services.telegram.send_document", new_callable=AsyncMock)
+        mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
+
+        await handle_exportar(CHAT_ID, ["03/2025"])
+
+        mock_doc.assert_called_once()
+        filename = mock_doc.call_args[0][2]
+        assert filename.endswith(".csv")
+        assert "03-2025" in filename
+
+    @pytest.mark.asyncio
+    async def test_empty_period_sends_message(self, mocker):
+        mocker.patch("src.services.database.get_expenses_by_period", new_callable=AsyncMock, return_value=[])
+        mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
+
+        await handle_exportar(CHAT_ID, ["03/2025"])
+
+        mock_send.assert_called()
+        assert "Nenhuma" in mock_send.call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_invalid_period_sends_error(self, mocker):
+        mock_db = mocker.patch("src.services.database.get_expenses_by_period", new_callable=AsyncMock)
+        mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
+
+        await handle_exportar(CHAT_ID, ["13/2025"])
+
+        mock_db.assert_not_called()
+        assert "inválido" in mock_send.call_args[0][1].lower()
+
+
+class TestGenerateCsv:
+    def test_csv_has_bom(self):
+        from datetime import datetime
+        from decimal import Decimal
+        from src.models.expense import Expense
+        expense = Expense(
+            id="550e8400-e29b-41d4-a716-446655440001",
+            valor=Decimal("45.90"), data=date(2025, 1, 15),
+            estabelecimento="Mercado", descricao="Compras", categoria="Alimentação",
+            cnpj=None, tipo_entrada="texto", confianca=0.9,
+            created_at=datetime(2025, 1, 15, 10, 0, 0),
+        )
+        result = _generate_csv([expense])
+        assert result.startswith(b"\xef\xbb\xbf")
+
+    def test_csv_contains_expense_data(self):
+        from datetime import datetime
+        from decimal import Decimal
+        from src.models.expense import Expense
+        expense = Expense(
+            id="550e8400-e29b-41d4-a716-446655440001",
+            valor=Decimal("45.90"), data=date(2025, 1, 15),
+            estabelecimento="Mercado", descricao="Compras", categoria="Alimentação",
+            cnpj=None, tipo_entrada="texto", confianca=0.9,
+            created_at=datetime(2025, 1, 15, 10, 0, 0),
+        )
+        result = _generate_csv([expense]).decode("utf-8-sig")
+        assert "Mercado" in result
+        assert "Alimentação" in result
+        assert "45,90" in result
+
+
+class TestHandleCategorias:
+    @pytest.mark.asyncio
+    async def test_lists_categories_from_db(self, mocker):
+        mocker.patch(
+            "src.services.database.get_active_categories",
+            new_callable=AsyncMock,
+            return_value=["Alimentação", "Saúde", "Transporte"],
+        )
+        mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
+
+        await handle_categorias(CHAT_ID)
+
+        text = mock_send.call_args[0][1]
+        assert "Alimentação" in text
+        assert "Saúde" in text
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_default_on_db_error(self, mocker):
+        mocker.patch(
+            "src.services.database.get_active_categories",
+            new_callable=AsyncMock,
+            side_effect=Exception("DB error"),
+        )
+        mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
+
+        await handle_categorias(CHAT_ID)
+
+        text = mock_send.call_args[0][1]
+        assert "Outros" in text

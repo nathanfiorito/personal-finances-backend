@@ -1,4 +1,5 @@
 import logging
+import time
 
 from src.config.settings import settings
 from src.models.expense import ExtractedExpense
@@ -19,8 +20,6 @@ CATEGORIES = [
     "Outros",
 ]
 
-_CATEGORIES_STR = ", ".join(CATEGORIES)
-
 _PROMPT = """Classifique a despesa abaixo em UMA das categorias: {categories}
 
 Estabelecimento: {estabelecimento}
@@ -39,13 +38,34 @@ Exemplos:
 
 Responda APENAS com o nome exato da categoria, sem explicação."""
 
+_CACHE_TTL = 300  # 5 minutes
+_categories_cache: list[str] | None = None
+_cache_expires_at: float = 0.0
+
+
+async def _get_categories() -> list[str]:
+    global _categories_cache, _cache_expires_at
+    if _categories_cache is not None and time.monotonic() < _cache_expires_at:
+        return _categories_cache
+    try:
+        from src.services import database
+        cats = await database.get_active_categories()
+        if cats:
+            _categories_cache = cats
+            _cache_expires_at = time.monotonic() + _CACHE_TTL
+            return _categories_cache
+    except Exception:
+        logger.warning("Falha ao buscar categorias do banco — usando lista padrão")
+    return CATEGORIES
+
 
 async def categorize(expense: ExtractedExpense) -> str:
+    categories = await _get_categories()
     estabelecimento = expense.estabelecimento or "Não informado"
     descricao = expense.descricao or "Não informada"
 
     prompt = _PROMPT.format(
-        categories=_CATEGORIES_STR,
+        categories=", ".join(categories),
         estabelecimento=estabelecimento,
         descricao=descricao,
     )
@@ -58,12 +78,11 @@ async def categorize(expense: ExtractedExpense) -> str:
         )
         categoria = raw.strip().rstrip(".")
 
-        if categoria in CATEGORIES:
+        if categoria in categories:
             logger.info("Categoria: %r (estabelecimento=%r)", categoria, expense.estabelecimento)
             return categoria
 
-        # Tentar match case-insensitive
-        for cat in CATEGORIES:
+        for cat in categories:
             if cat.lower() == categoria.lower():
                 return cat
 

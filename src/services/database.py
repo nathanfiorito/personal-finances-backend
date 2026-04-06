@@ -61,6 +61,18 @@ async def get_expenses_by_period(start: date, end: date) -> list[Expense]:
     return [Expense(**row) for row in response.data]
 
 
+async def get_active_categories() -> list[str]:
+    client = await _get_client()
+    response = (
+        await client.table("categories")
+        .select("nome")
+        .eq("ativo", True)
+        .order("nome")
+        .execute()
+    )
+    return [row["nome"] for row in response.data]
+
+
 async def get_totals_by_category(start: date, end: date) -> dict[str, Decimal]:
     expenses = await get_expenses_by_period(start, end)
     totals: dict[str, Decimal] = {}

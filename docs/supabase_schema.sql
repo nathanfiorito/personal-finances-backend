@@ -29,3 +29,35 @@ CREATE POLICY "service role full access"
     ON expenses
     USING (true)
     WITH CHECK (true);
+
+-- ============================================================
+-- Categorias
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS categories (
+    id          SERIAL PRIMARY KEY,
+    nome        VARCHAR(100) UNIQUE NOT NULL,
+    ativo       BOOLEAN DEFAULT TRUE,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "service role full access"
+    ON categories
+    USING (true)
+    WITH CHECK (true);
+
+-- Seed: categorias padrão
+INSERT INTO categories (nome) VALUES
+    ('Alimentação'),
+    ('Educação'),
+    ('Lazer'),
+    ('Moradia'),
+    ('Outros'),
+    ('Pets'),
+    ('Saúde'),
+    ('Serviços'),
+    ('Transporte'),
+    ('Vestuário')
+ON CONFLICT (nome) DO NOTHING;
