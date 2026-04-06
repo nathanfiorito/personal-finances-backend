@@ -9,7 +9,7 @@ from src.agents.reporter import generate_report, _fmt
 def _expense(categoria: str, valor: str, estabelecimento: str | None = None) -> object:
     from src.models.expense import Expense
     return Expense(
-        id="uuid-1",
+        id="550e8400-e29b-41d4-a716-446655440001",
         valor=Decimal(valor),
         data=date(2024, 1, 15),
         estabelecimento=estabelecimento,

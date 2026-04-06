@@ -120,5 +120,7 @@ async def generate_report(start: date, end: date) -> str:
         "<b>Por categoria:</b>",
         *breakdown_lines,
         "",
+        f"🏪 <b>Top estabelecimentos:</b> {top_estab}",
+        "",
         f"💡 {insight}",
     ])
