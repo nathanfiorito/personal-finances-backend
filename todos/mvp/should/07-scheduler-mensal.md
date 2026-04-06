@@ -10,12 +10,12 @@ Disparar automaticamente o relatório do mês anterior no dia 1 de cada mês às
 
 ### Scheduler (`src/scheduler/reports.py`)
 
-- [ ] Configurar APScheduler com job:
+- [ X ] Configurar APScheduler com job:
   - Cron: `0 8 1 * *` (08:00 no dia 1 de cada mês)
   - Timezone: `America/Sao_Paulo`
   - Job: `send_monthly_report()`
 
-- [ ] `send_monthly_report()`:
+- [ X ] `send_monthly_report()`:
   1. Calcular período: primeiro e último dia do mês anterior
   2. Chamar `reporter.generate_report(start, end)`
   3. Enviar mensagem via `telegram_client.send_message(TELEGRAM_ALLOWED_CHAT_ID, report)`
@@ -23,18 +23,18 @@ Disparar automaticamente o relatório do mês anterior no dia 1 de cada mês às
 
 ### Integração com FastAPI (`src/main.py`)
 
-- [ ] Iniciar o scheduler junto com o app FastAPI (`startup` event)
-- [ ] Desligar o scheduler no `shutdown` event
+- [ X ] Iniciar o scheduler junto com o app FastAPI (`startup` event)
+- [ X ] Desligar o scheduler no `shutdown` event
 
 ### Serviço Telegram (`src/services/telegram.py`)
 
-- [ ] `send_message(chat_id: int, text: str)` — para envio proativo (sem resposta a update)
+- [ X ] `send_message(chat_id: int, text: str)` — para envio proativo (sem resposta a update)
 
 ### Testes
 
-- [ ] Testar que o job é registrado na inicialização do app
-- [ ] Testar `send_monthly_report()` com DB mockado (verificar que envia mensagem correta)
-- [ ] Testar cálculo de período (mês anterior ao dia 1)
+- [ X ] Testar que o job é registrado na inicialização do app
+- [ X ] Testar `send_monthly_report()` com DB mockado (verificar que envia mensagem correta)
+- [ X ] Testar cálculo de período (mês anterior ao dia 1)
 
 ## Critérios de Aceite
 

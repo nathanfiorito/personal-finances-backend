@@ -18,17 +18,17 @@ Implementar o comando `/relatorio` que gera um resumo financeiro por período (s
 
 ### Handler de Comando (`src/handlers/commands.py`)
 
-- [ ] Parsear argumento do comando (`semana` ou `mes`)
-- [ ] Calcular período:
+- [ X ] Parsear argumento do comando (`semana` ou `mes`)
+- [ X ] Calcular período:
   - `semana`: `today - 7 dias` até `today`
   - `mes`: `primeiro dia do mês corrente` até `today`
-- [ ] Enviar "Gerando relatório..." enquanto processa
-- [ ] Chamar `reporter.generate_report(start, end)`
-- [ ] Enviar resposta formatada
+- [ X ] Enviar "Gerando relatório..." enquanto processa
+- [ X ] Chamar `reporter.generate_report(start, end)`
+- [ X ] Enviar resposta formatada
 
 ### Agente de Relatório (`src/agents/reporter.py`)
 
-- [ ] `generate_report(start: date, end: date) -> str`
+- [ X ] `generate_report(start: date, end: date) -> str`
   1. `database.get_totals_by_category(start, end)` → dict de totais
   2. `database.get_expenses_by_period(start, end)` → lista de despesas
   3. Calcular total geral
@@ -70,9 +70,9 @@ Por categoria:
 
 ### Testes
 
-- [ ] Testar parsing de argumentos do comando
-- [ ] Testar cálculo de período para `semana` e `mes`
-- [ ] Testar formatação com dados de fixture (mockar DB e LLM)
+- [ X ] Testar parsing de argumentos do comando
+- [ X ] Testar cálculo de período para `semana` e `mes`
+- [ X ] Testar formatação com dados de fixture (mockar DB e LLM)
 
 ## Critérios de Aceite
 

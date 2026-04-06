@@ -17,41 +17,41 @@ NF-e em PDF geralmente contém texto extraível (não é scan). A estratégia é
 
 ### Extração de Texto do PDF
 
-- [ ] Adicionar dependência: `pdfplumber` (ou `pymupdf`)
-- [ ] Criar `extract_text_from_pdf(pdf_bytes: bytes) -> str | None`
+- [ X ] Adicionar dependência: `pdfplumber` (ou `pymupdf`)
+- [ X ] Criar `extract_text_from_pdf(pdf_bytes: bytes) -> str | None`
   - Extrair texto de todas as páginas
   - Retornar `None` se PDF não contiver texto legível (< 50 chars)
 
 ### Fallback para Visão (PDF escaneado)
 
-- [ ] Se `extract_text_from_pdf` retornar `None`:
+- [ X ] Se `extract_text_from_pdf` retornar `None`:
   - Converter primeira página do PDF em imagem (`pdf2image` ou `pymupdf`)
   - Enviar ao `extract_from_image()` do Agente Extrator
 
 ### Agente Extrator (`src/agents/extractor.py`)
 
-- [ ] `extract_from_pdf(pdf_bytes: bytes) -> ExtractedExpense`
+- [ X ] `extract_from_pdf(pdf_bytes: bytes) -> ExtractedExpense`
   1. Tentar extração de texto
   2. Se texto disponível → `extract_from_text(text)` com tipo `"pdf"`
   3. Se não → converter para imagem → `extract_from_image(image_bytes)` com tipo `"pdf"`
 
 ### Handler (`src/handlers/message.py`)
 
-- [ ] Detectar PDF pelo `mime_type == "application/pdf"` no `message.document`
-- [ ] Baixar arquivo e chamar `extract_from_pdf()`
-- [ ] Continuar fluxo normal (categorização → confirmação → persistência)
+- [ X ] Detectar PDF pelo `mime_type == "application/pdf"` no `message.document`
+- [ X ] Baixar arquivo e chamar `extract_from_pdf()`
+- [ X ] Continuar fluxo normal (categorização → confirmação → persistência)
 
 ### Dependências Python
 
-- [ ] Adicionar ao `requirements.txt`:
+- [ X ] Adicionar ao `requirements.txt`:
   - `pdfplumber`
   - `pdf2image` (requer `poppler` instalado no sistema)
   - Alternativa sem binário externo: `pymupdf` (inclui tudo)
 
 ### Testes
 
-- [ ] `tests/test_extractor.py`: testar PDF com texto extraível
-- [ ] Testar fallback para PDF escaneado (mockar conversão para imagem)
+- [ X ] `tests/test_extractor.py`: testar PDF com texto extraível
+- [ X ] Testar fallback para PDF escaneado (mockar conversão para imagem)
 
 ## Critérios de Aceite
 
