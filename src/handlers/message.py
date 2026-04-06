@@ -128,8 +128,29 @@ async def handle_text(chat_id: int, text: str) -> None:
 
 
 async def handle_pdf(chat_id: int, document: dict) -> None:
+    if document.get("file_size", 0) > 10 * 1024 * 1024:
+        await telegram.send_message(
+            chat_id, "⚠️ PDF muito grande (máx. 10MB). Tente tirar uma foto do documento."
+        )
+        return
+
     await telegram.send_message(chat_id, "⏳ Processando PDF...")
-    # MVP-S3: implementar extração de PDF
-    await telegram.send_message(
-        chat_id, "📄 Suporte a PDF chegando em breve! Por enquanto, tire uma foto do documento."
-    )
+
+    try:
+        pdf_bytes = await telegram.get_file(document["file_id"])
+        expense = await extractor.extract_from_pdf(pdf_bytes)
+        categoria = await categorizer.categorize(expense)
+        await _send_confirmation(chat_id, expense, categoria)
+    except LLMTimeoutError:
+        await telegram.send_message(chat_id, "⏱️ O serviço de IA demorou demais. Tente novamente.")
+    except LLMRateLimitError:
+        await telegram.send_message(chat_id, "⚠️ Muitas requisições. Aguarde alguns segundos e tente novamente.")
+    except ExtractionError as e:
+        logger.warning("Falha na extração de PDF: %s", e)
+        await telegram.send_message(
+            chat_id,
+            "⚠️ Não consegui extrair os dados deste PDF. Tente tirar uma foto do documento.",
+        )
+    except Exception:
+        logger.exception("Erro inesperado ao processar PDF")
+        await telegram.send_message(chat_id, "❌ Ocorreu um erro inesperado. Tente novamente.")

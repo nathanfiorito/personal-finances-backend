@@ -1,6 +1,6 @@
 import logging
+from datetime import date, timedelta
 
-from src.config.settings import settings
 from src.services import telegram
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,24 @@ async def handle_ajuda(chat_id: int) -> None:
     await telegram.send_message(chat_id, text)
 
 
+async def handle_relatorio(chat_id: int, args: list[str]) -> None:
+    periodo_arg = args[0].lower() if args else "mes"
+    today = date.today()
+
+    if periodo_arg == "semana":
+        start = today - timedelta(days=7)
+        end = today
+    else:
+        start = today.replace(day=1)
+        end = today
+
+    await telegram.send_message(chat_id, "⏳ Gerando relatório...")
+
+    from src.agents import reporter
+    report = await reporter.generate_report(start, end)
+    await telegram.send_message(chat_id, report)
+
+
 async def handle_unknown(chat_id: int, command: str) -> None:
     await telegram.send_message(
         chat_id,
@@ -37,15 +55,15 @@ async def handle_unknown(chat_id: int, command: str) -> None:
 
 
 async def dispatch_command(chat_id: int, text: str) -> None:
-    command = text.split()[0].lower().split("@")[0]  # /cmd@botname → /cmd
-    args = text.split()[1:] if len(text.split()) > 1 else []
+    parts = text.split()
+    command = parts[0].lower().split("@")[0]  # /cmd@botname → /cmd
+    args = parts[1:]
 
     if command == "/start":
         await handle_start(chat_id)
     elif command == "/ajuda":
         await handle_ajuda(chat_id)
     elif command == "/relatorio":
-        # Placeholder — implementado em MVP-S1
-        await telegram.send_message(chat_id, "📊 Relatórios disponíveis em breve!")
+        await handle_relatorio(chat_id, args)
     else:
         await handle_unknown(chat_id, command)

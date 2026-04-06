@@ -139,6 +139,41 @@ async def extract_from_image(image_bytes: bytes) -> ExtractedExpense:
     return expense
 
 
+def _extract_text_from_pdf(pdf_bytes: bytes) -> str | None:
+    """Extracts text from a PDF. Returns None if the PDF has no readable text (< 50 chars)."""
+    try:
+        import io
+        import pdfplumber
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+        text = text.strip()
+        return text if len(text) >= 50 else None
+    except Exception:
+        logger.warning("pdfplumber falhou na extração de texto do PDF")
+        return None
+
+
+def _pdf_to_image(pdf_bytes: bytes) -> bytes:
+    """Converts the first page of a PDF to a JPEG image using PyMuPDF."""
+    import fitz  # pymupdf
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    page = doc[0]
+    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for quality
+    return pix.tobytes("jpeg")
+
+
+async def extract_from_pdf(pdf_bytes: bytes) -> ExtractedExpense:
+    text = _extract_text_from_pdf(pdf_bytes)
+    if text:
+        logger.info("PDF com texto extraível — usando Haiku")
+        expense = await extract_from_text(text)
+    else:
+        logger.info("PDF sem texto — convertendo para imagem e usando Sonnet")
+        image_bytes = _pdf_to_image(pdf_bytes)
+        expense = await extract_from_image(image_bytes)
+    return expense.model_copy(update={"tipo_entrada": "pdf"})
+
+
 async def extract_from_text(text: str) -> ExtractedExpense:
     prompt = _PROMPT_TEXT.format(texto=text.replace('"', "'"))
     messages = [{"role": "user", "content": prompt}]

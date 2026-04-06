@@ -33,9 +33,9 @@ Objetivo: validar extração de dados de comprovantes com Claude Sonnet 4.6 via 
 
 | # | Tarefa | Status |
 |---|---|---|
-| S1 | [Comando /relatorio](./mvp/should/06-comando-relatorio.md) | ⬜ |
-| S2 | [Scheduler de relatório mensal automático](./mvp/should/07-scheduler-mensal.md) | ⬜ |
-| S3 | [Suporte a PDF de NF-e](./mvp/should/08-suporte-pdf.md) | ⬜ |
+| S1 | [Comando /relatorio](./mvp/should/06-comando-relatorio.md) | ✅ |
+| S2 | [Scheduler de relatório mensal automático](./mvp/should/07-scheduler-mensal.md) | ✅ |
+| S3 | [Suporte a PDF de NF-e](./mvp/should/08-suporte-pdf.md) | ✅ |
 
 ### Could-have (Pós-MVP)
 

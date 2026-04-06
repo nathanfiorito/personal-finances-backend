@@ -7,8 +7,10 @@ from src.agents.extractor import (
     ExtractionError,
     _parse_llm_json,
     _build_expense,
+    _extract_text_from_pdf,
     extract_from_image,
     extract_from_text,
+    extract_from_pdf,
 )
 from src.services.llm import LLMTimeoutError, LLMRateLimitError
 
@@ -162,6 +164,50 @@ class TestLLMErrors:
             mock_llm.side_effect = LLMTimeoutError("timeout")
             with pytest.raises(LLMTimeoutError):
                 await extract_from_image(fake_image)
+
+
+class TestExtractFromPdf:
+    @pytest.mark.asyncio
+    async def test_pdf_with_text_uses_haiku(self, mocker):
+        mocker.patch("src.agents.extractor._extract_text_from_pdf", return_value="NF-e valor R$ 150,00 data 2024-01-15")
+        mock_llm = mocker.patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock)
+        mock_llm.return_value = '{"valor": 150.0, "data": "2024-01-15", "estabelecimento": "Loja X", "descricao": null, "cnpj": null, "confianca": 0.95}'
+
+        expense = await extract_from_pdf(b"fake-pdf")
+
+        assert expense.tipo_entrada == "pdf"
+        assert expense.valor == Decimal("150.0")
+        model_arg = mock_llm.call_args.kwargs.get("model", mock_llm.call_args.args[0] if mock_llm.call_args.args else "")
+        assert "haiku" in model_arg
+
+    @pytest.mark.asyncio
+    async def test_pdf_without_text_falls_back_to_vision(self, mocker):
+        mocker.patch("src.agents.extractor._extract_text_from_pdf", return_value=None)
+        mocker.patch("src.agents.extractor._pdf_to_image", return_value=b"\xff\xd8\xff" + b"\x00" * 100)
+        mock_llm = mocker.patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock)
+        mock_llm.return_value = '{"valor": 80.0, "data": "2024-01-15", "estabelecimento": null, "descricao": null, "cnpj": null, "confianca": 0.7}'
+
+        expense = await extract_from_pdf(b"fake-scanned-pdf")
+
+        assert expense.tipo_entrada == "pdf"
+        model_arg = mock_llm.call_args.kwargs.get("model", mock_llm.call_args.args[0] if mock_llm.call_args.args else "")
+        assert "sonnet" in model_arg
+
+    def test_extract_text_returns_none_for_short_text(self, mocker):
+        import io
+        mock_pdf = mocker.MagicMock()
+        mock_pdf.__enter__ = mocker.MagicMock(return_value=mock_pdf)
+        mock_pdf.__exit__ = mocker.MagicMock(return_value=False)
+        mock_pdf.pages = [mocker.MagicMock(extract_text=mocker.MagicMock(return_value="abc"))]
+        mocker.patch("pdfplumber.open", return_value=mock_pdf)
+
+        result = _extract_text_from_pdf(b"fake")
+        assert result is None  # "abc" < 50 chars
+
+    def test_extract_text_returns_none_on_exception(self, mocker):
+        mocker.patch("pdfplumber.open", side_effect=Exception("corrupt pdf"))
+        result = _extract_text_from_pdf(b"corrupt")
+        assert result is None
 
 
 class TestExpenseModel:
