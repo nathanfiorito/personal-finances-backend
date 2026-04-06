@@ -40,6 +40,9 @@ async def send_message(chat_id: int, text: str, parse_mode: str = "HTML", **kwar
 
 
 async def edit_message(chat_id: int, message_id: int, text: str, **kwargs) -> dict:
+    # Remove inline keyboard by default unless caller explicitly passes reply_markup
+    if "reply_markup" not in kwargs:
+        kwargs["reply_markup"] = {"inline_keyboard": []}
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{TELEGRAM_API}/editMessageText",
@@ -52,6 +55,9 @@ async def edit_message(chat_id: int, message_id: int, text: str, **kwargs) -> di
             },
             timeout=10,
         )
+        # Telegram returns 400 when text+markup didn't change — not a real error
+        if response.status_code == 400 and "message is not modified" in response.text:
+            return response.json()
         response.raise_for_status()
         return response.json()
 

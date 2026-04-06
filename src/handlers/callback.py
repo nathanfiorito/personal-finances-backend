@@ -6,6 +6,18 @@ from src.services import telegram
 logger = logging.getLogger(__name__)
 
 
+async def _try_edit(chat_id: int, message_id: int, text: str, **kwargs) -> None:
+    """Edit a message; fall back to a new message if the edit fails."""
+    try:
+        await telegram.edit_message(chat_id, message_id, text, **kwargs)
+    except Exception:
+        logger.warning("edit_message falhou para chat_id=%s, enviando nova mensagem", chat_id)
+        try:
+            await telegram.send_message(chat_id, text)
+        except Exception:
+            logger.error("send_message também falhou para chat_id=%s", chat_id)
+
+
 async def handle_callback(callback_query: dict) -> None:
     callback_id = callback_query["id"]
     chat_id: int = callback_query["message"]["chat"]["id"]
@@ -30,34 +42,34 @@ async def _handle_confirm(callback_id: str, chat_id: int, message_id: int) -> No
 
     if pending is None:
         await telegram.answer_callback(callback_id, "⏱️ Operação expirada. Envie novamente.")
-        await telegram.edit_message(chat_id, message_id, "⏱️ Operação expirada. Envie a despesa novamente.")
+        await _try_edit(chat_id, message_id, "⏱️ Operação expirada. Envie a despesa novamente.")
         return
 
-    await telegram.answer_callback(callback_id, "Salvando...")
+    await telegram.answer_callback(callback_id)
 
+    saved = False
     try:
         from src.services import database
         await database.save_expense(pending.extracted, pending.categoria)
-
-        valor_fmt = f"R$ {pending.extracted.valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        await telegram.edit_message(
-            chat_id,
-            message_id,
-            f"✅ Despesa de <b>{valor_fmt}</b> em <b>{pending.categoria}</b> registrada!",
-        )
+        saved = True
     except Exception:
         logger.exception("Erro ao salvar despesa")
-        await telegram.edit_message(
-            chat_id, message_id, "❌ Erro ao salvar a despesa. Tente novamente."
-        )
     finally:
         pending_store.delete(chat_id)
+
+    if saved:
+        valor_fmt = f"R$ {pending.extracted.valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        text = f"✅ Despesa de <b>{valor_fmt}</b> em <b>{pending.categoria}</b> registrada!"
+    else:
+        text = "❌ Erro ao salvar a despesa. Tente novamente."
+
+    await _try_edit(chat_id, message_id, text)
 
 
 async def _handle_cancel(callback_id: str, chat_id: int, message_id: int) -> None:
     pending_store.delete(chat_id)
     await telegram.answer_callback(callback_id, "Cancelado.")
-    await telegram.edit_message(chat_id, message_id, "❌ Despesa cancelada.")
+    await _try_edit(chat_id, message_id, "❌ Despesa cancelada.")
 
 
 async def _handle_edit_category(callback_id: str, chat_id: int, message_id: int) -> None:
@@ -67,7 +79,7 @@ async def _handle_edit_category(callback_id: str, chat_id: int, message_id: int)
         return
 
     await telegram.answer_callback(callback_id)
-    await telegram.edit_message(
+    await _try_edit(
         chat_id,
         message_id,
         "🏷️ Escolha a categoria:",
@@ -87,7 +99,7 @@ async def _handle_set_category(
     await telegram.answer_callback(callback_id, f"Categoria: {categoria}")
 
     from src.handlers.message import _format_extracted
-    await telegram.edit_message(
+    await _try_edit(
         chat_id,
         message_id,
         _format_extracted(pending.extracted, pending.categoria),
