@@ -5,6 +5,7 @@ from src.agents.extractor import ExtractionError
 from src.handlers.commands import dispatch_command
 from src.models.expense import ExtractedExpense
 from src.services import telegram
+from src.services.llm import LLMRateLimitError, LLMTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,10 @@ async def handle_photo(chat_id: int, message: dict) -> None:
         expense = await extractor.extract_from_image(image_bytes)
         await telegram.send_message(chat_id, _format_extracted(expense))
         # MVP-M4: adicionar botões de confirmação aqui
+    except LLMTimeoutError:
+        await telegram.send_message(chat_id, "⏱️ O serviço de IA demorou demais. Tente novamente.")
+    except LLMRateLimitError:
+        await telegram.send_message(chat_id, "⚠️ Muitas requisições. Aguarde alguns segundos e tente novamente.")
     except ExtractionError as e:
         logger.warning("Falha na extração de imagem: %s", e)
         await telegram.send_message(
@@ -94,6 +99,10 @@ async def handle_text(chat_id: int, text: str) -> None:
         expense = await extractor.extract_from_text(text)
         await telegram.send_message(chat_id, _format_extracted(expense))
         # MVP-M4: adicionar botões de confirmação aqui
+    except LLMTimeoutError:
+        await telegram.send_message(chat_id, "⏱️ O serviço de IA demorou demais. Tente novamente.")
+    except LLMRateLimitError:
+        await telegram.send_message(chat_id, "⚠️ Muitas requisições. Aguarde alguns segundos e tente novamente.")
     except ExtractionError as e:
         logger.warning("Falha na extração de texto: %s", e)
         await telegram.send_message(

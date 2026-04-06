@@ -2,13 +2,21 @@ import asyncio
 import logging
 from typing import Any
 
-from openai import AsyncOpenAI, APIConnectionError, APIStatusError, RateLimitError
+from openai import AsyncOpenAI, APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 _client: AsyncOpenAI | None = None
+
+
+class LLMTimeoutError(Exception):
+    pass
+
+
+class LLMRateLimitError(Exception):
+    pass
 
 
 def get_client() -> AsyncOpenAI:
@@ -47,10 +55,17 @@ async def chat_completion(
             )
             return content
 
-        except RateLimitError:
+        except APITimeoutError as e:
+            logger.warning("Timeout na chamada ao LLM (tentativa %d/%d)", attempt, max_retries)
+            if attempt == max_retries:
+                raise LLMTimeoutError("Tempo limite excedido ao chamar o LLM") from e
+            await asyncio.sleep(delay)
+            delay *= 2
+
+        except RateLimitError as e:
             logger.warning("Rate limit atingido (tentativa %d/%d)", attempt, max_retries)
             if attempt == max_retries:
-                raise
+                raise LLMRateLimitError("Limite de requisições da API atingido") from e
             await asyncio.sleep(delay)
             delay *= 2
 

@@ -10,6 +10,7 @@ from src.agents.extractor import (
     extract_from_image,
     extract_from_text,
 )
+from src.services.llm import LLMTimeoutError, LLMRateLimitError
 
 
 class TestParseLlmJson:
@@ -137,3 +138,41 @@ class TestExtractFromImage:
         call_kwargs = mock_llm.call_args
         model_arg = call_kwargs.kwargs.get("model", call_kwargs.args[0] if call_kwargs.args else "")
         assert "sonnet" in model_arg
+
+
+class TestLLMErrors:
+    @pytest.mark.asyncio
+    async def test_timeout_propagates_from_text(self):
+        with patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock) as mock_llm:
+            mock_llm.side_effect = LLMTimeoutError("timeout")
+            with pytest.raises(LLMTimeoutError):
+                await extract_from_text("gastei 50")
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_propagates_from_text(self):
+        with patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock) as mock_llm:
+            mock_llm.side_effect = LLMRateLimitError("rate limit")
+            with pytest.raises(LLMRateLimitError):
+                await extract_from_text("gastei 50")
+
+    @pytest.mark.asyncio
+    async def test_timeout_propagates_from_image(self):
+        fake_image = b"\xff\xd8\xff" + b"\x00" * 100
+        with patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock) as mock_llm:
+            mock_llm.side_effect = LLMTimeoutError("timeout")
+            with pytest.raises(LLMTimeoutError):
+                await extract_from_image(fake_image)
+
+
+class TestExpenseModel:
+    def test_valor_negativo_raises(self):
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            from src.models.expense import ExtractedExpense
+            ExtractedExpense(valor=Decimal("-10"), data=date.today(), tipo_entrada="texto")
+
+    def test_valor_acima_do_limite_raises(self):
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            from src.models.expense import ExtractedExpense
+            ExtractedExpense(valor=Decimal("1000000"), data=date.today(), tipo_entrada="texto")

@@ -21,6 +21,8 @@ class ExtractedExpense(BaseModel):
     def valor_must_be_positive(cls, v: Decimal) -> Decimal:
         if v <= 0:
             raise ValueError("valor deve ser positivo")
+        if v > Decimal("999999.99"):
+            raise ValueError("valor excede o limite razoável de R$ 999.999,99")
         return v
 
     @field_validator("cnpj")
