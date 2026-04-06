@@ -46,6 +46,7 @@ async def _handle_confirm(callback_id: str, chat_id: int, message_id: int) -> No
         return
 
     await telegram.answer_callback(callback_id)
+    await _try_edit(chat_id, message_id, "⏳ Gravando no banco de dados...")
 
     saved = False
     try:
@@ -59,11 +60,12 @@ async def _handle_confirm(callback_id: str, chat_id: int, message_id: int) -> No
 
     if saved:
         valor_fmt = f"R$ {pending.extracted.valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        text = f"✅ Despesa de <b>{valor_fmt}</b> em <b>{pending.categoria}</b> registrada!"
+        await telegram.send_message(
+            chat_id,
+            f"✅ Despesa de <b>{valor_fmt}</b> em <b>{pending.categoria}</b> registrada com sucesso!",
+        )
     else:
-        text = "❌ Erro ao salvar a despesa. Tente novamente."
-
-    await _try_edit(chat_id, message_id, text)
+        await telegram.send_message(chat_id, "❌ Erro ao salvar a despesa. Tente novamente.")
 
 
 async def _handle_cancel(callback_id: str, chat_id: int, message_id: int) -> None:
