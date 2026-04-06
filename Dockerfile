@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install deps first (layer cache)
 COPY requirements.txt .
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+RUN apt-get update && apt-get install -y --no-install-recommends curl wget \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir -r requirements.txt
 
