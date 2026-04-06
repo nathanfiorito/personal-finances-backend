@@ -2,7 +2,7 @@ import pytest
 from datetime import date, timedelta
 from unittest.mock import AsyncMock, patch
 
-from src.handlers.commands import dispatch_command, handle_relatorio, handle_exportar, handle_categorias, _parse_periodo, _generate_csv
+from src.handlers.commands import dispatch_command, handle_relatorio, handle_exportar, handle_categorias, _parse_periodo, _generate_csv, _handle_categorias_add
 
 
 CHAT_ID = 12345
@@ -253,7 +253,7 @@ class TestHandleCategorias:
         )
         mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
 
-        await handle_categorias(CHAT_ID)
+        await handle_categorias(CHAT_ID, [])
 
         text = mock_send.call_args[0][1]
         assert "Alimentação" in text
@@ -268,7 +268,73 @@ class TestHandleCategorias:
         )
         mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
 
-        await handle_categorias(CHAT_ID)
+        await handle_categorias(CHAT_ID, [])
 
         text = mock_send.call_args[0][1]
         assert "Outros" in text
+
+    @pytest.mark.asyncio
+    async def test_shows_add_hint(self, mocker):
+        mocker.patch("src.services.database.get_active_categories", new_callable=AsyncMock, return_value=["Alimentação"])
+        mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
+
+        await handle_categorias(CHAT_ID, [])
+
+        assert "add" in mock_send.call_args[0][1].lower()
+
+
+class TestHandleCategoriasAdd:
+    @pytest.mark.asyncio
+    async def test_adds_category_successfully(self, mocker):
+        mock_add = mocker.patch("src.services.database.add_category", new_callable=AsyncMock)
+        mocker.patch("src.agents.categorizer.invalidate_cache")
+        mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
+
+        await _handle_categorias_add(CHAT_ID, ["Investimentos"])
+
+        mock_add.assert_called_once_with("Investimentos")
+        assert "Investimentos" in mock_send.call_args[0][1]
+        assert "✅" in mock_send.call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_invalidates_cache_after_add(self, mocker):
+        mocker.patch("src.services.database.add_category", new_callable=AsyncMock)
+        mock_invalidate = mocker.patch("src.agents.categorizer.invalidate_cache")
+        mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
+
+        await _handle_categorias_add(CHAT_ID, ["Investimentos"])
+
+        mock_invalidate.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_empty_name_shows_usage(self, mocker):
+        mock_add = mocker.patch("src.services.database.add_category", new_callable=AsyncMock)
+        mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
+
+        await _handle_categorias_add(CHAT_ID, [])
+
+        mock_add.assert_not_called()
+        assert "Informe" in mock_send.call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_duplicate_category_shows_warning(self, mocker):
+        mocker.patch(
+            "src.services.database.add_category",
+            new_callable=AsyncMock,
+            side_effect=Exception("duplicate key value violates unique constraint"),
+        )
+        mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
+
+        await _handle_categorias_add(CHAT_ID, ["Alimentação"])
+
+        assert "já existe" in mock_send.call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_multi_word_category_name(self, mocker):
+        mock_add = mocker.patch("src.services.database.add_category", new_callable=AsyncMock)
+        mocker.patch("src.agents.categorizer.invalidate_cache")
+        mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
+
+        await _handle_categorias_add(CHAT_ID, ["Assinaturas", "Digitais"])
+
+        mock_add.assert_called_once_with("Assinaturas Digitais")

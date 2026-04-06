@@ -145,7 +145,11 @@ async def handle_exportar(chat_id: int, args: list[str]) -> None:
     await telegram.send_document(chat_id, csv_bytes, filename, caption)
 
 
-async def handle_categorias(chat_id: int) -> None:
+async def handle_categorias(chat_id: int, args: list[str]) -> None:
+    if args and args[0].lower() == "add":
+        await _handle_categorias_add(chat_id, args[1:])
+        return
+
     from src.services import database
     try:
         categories = await database.get_active_categories()
@@ -155,8 +159,34 @@ async def handle_categorias(chat_id: int) -> None:
         categories = CATEGORIES
 
     lines = [f"  • {cat}" for cat in categories]
-    text = "<b>Categorias disponíveis:</b>\n\n" + "\n".join(lines)
+    text = (
+        "<b>Categorias disponíveis:</b>\n\n"
+        + "\n".join(lines)
+        + "\n\nPara adicionar: /categorias add <i>Nome</i>"
+    )
     await telegram.send_message(chat_id, text)
+
+
+async def _handle_categorias_add(chat_id: int, args: list[str]) -> None:
+    nome = " ".join(args).strip()
+    if not nome:
+        await telegram.send_message(
+            chat_id, "⚠️ Informe o nome da categoria. Ex: /categorias add Investimentos"
+        )
+        return
+
+    from src.services import database
+    from src.agents.categorizer import invalidate_cache
+    try:
+        await database.add_category(nome)
+        invalidate_cache()
+        await telegram.send_message(chat_id, f"✅ Categoria <b>{nome}</b> adicionada com sucesso!")
+    except Exception as e:
+        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+            await telegram.send_message(chat_id, f"⚠️ A categoria <b>{nome}</b> já existe.")
+        else:
+            logger.exception("Erro ao adicionar categoria")
+            await telegram.send_message(chat_id, "❌ Erro ao adicionar categoria. Tente novamente.")
 
 
 async def handle_unknown(chat_id: int, command: str) -> None:
@@ -180,6 +210,6 @@ async def dispatch_command(chat_id: int, text: str) -> None:
     elif command == "/exportar":
         await handle_exportar(chat_id, args)
     elif command == "/categorias":
-        await handle_categorias(chat_id)
+        await handle_categorias(chat_id, args)
     else:
         await handle_unknown(chat_id, command)

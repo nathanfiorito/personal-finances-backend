@@ -43,6 +43,12 @@ _categories_cache: list[str] | None = None
 _cache_expires_at: float = 0.0
 
 
+def invalidate_cache() -> None:
+    global _categories_cache, _cache_expires_at
+    _categories_cache = None
+    _cache_expires_at = 0.0
+
+
 async def _get_categories() -> list[str]:
     global _categories_cache, _cache_expires_at
     if _categories_cache is not None and time.monotonic() < _cache_expires_at:

@@ -61,6 +61,11 @@ async def get_expenses_by_period(start: date, end: date) -> list[Expense]:
     return [Expense(**row) for row in response.data]
 
 
+async def add_category(nome: str) -> None:
+    client = await _get_client()
+    await client.table("categories").insert({"nome": nome}).execute()
+
+
 async def get_active_categories() -> list[str]:
     client = await _get_client()
     response = (
