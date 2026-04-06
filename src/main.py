@@ -10,6 +10,7 @@ from slowapi.util import get_remote_address
 
 from src.config.settings import settings
 from src.handlers.message import handle_update
+from src.routers import categories, expenses, export, reports
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,10 +53,16 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"https://([a-zA-Z0-9-]+\.)*nathanfiorito\.com\.br",
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["*"],
     allow_credentials=False,
 )
+
+
+app.include_router(expenses.router)
+app.include_router(categories.router)
+app.include_router(reports.router)
+app.include_router(export.router)
 
 
 @app.get("/health")

@@ -100,3 +100,129 @@ async def get_totals_by_category(start: date, end: date) -> dict[str, Decimal]:
     for expense in expenses:
         totals[expense.categoria] = totals.get(expense.categoria, Decimal("0")) + expense.valor
     return totals
+
+
+async def get_expenses_paginated(
+    start: date | None,
+    end: date | None,
+    categoria_id: int | None,
+    page: int,
+    page_size: int,
+) -> tuple[list[Expense], int]:
+    client = await _get_client()
+    query = client.table("expenses").select("*, categories(nome)", count="exact")
+    if start:
+        query = query.gte("data", start.isoformat())
+    if end:
+        query = query.lte("data", end.isoformat())
+    if categoria_id is not None:
+        query = query.eq("categoria_id", categoria_id)
+    offset = (page - 1) * page_size
+    query = query.order("data", desc=True).range(offset, offset + page_size - 1)
+    response = await query.execute()
+    total = response.count or 0
+    return [_parse_expense_row(row) for row in response.data], total
+
+
+async def get_expense_by_id(expense_id: str) -> Expense | None:
+    client = await _get_client()
+    response = (
+        await client.table("expenses")
+        .select("*, categories(nome)")
+        .eq("id", expense_id)
+        .limit(1)
+        .execute()
+    )
+    if not response.data:
+        return None
+    return _parse_expense_row(response.data[0])
+
+
+async def create_expense_direct(record: dict) -> Expense:
+    client = await _get_client()
+    response = (
+        await client.table("expenses")
+        .insert(record)
+        .select("*, categories(nome)")
+        .execute()
+    )
+    return _parse_expense_row(response.data[0])
+
+
+async def update_expense(expense_id: str, data: dict) -> Expense | None:
+    client = await _get_client()
+    response = (
+        await client.table("expenses")
+        .update(data)
+        .eq("id", expense_id)
+        .select("*, categories(nome)")
+        .execute()
+    )
+    if not response.data:
+        return None
+    return _parse_expense_row(response.data[0])
+
+
+async def delete_expense(expense_id: str) -> bool:
+    client = await _get_client()
+    response = (
+        await client.table("expenses")
+        .delete()
+        .eq("id", expense_id)
+        .select("id")
+        .execute()
+    )
+    return bool(response.data)
+
+
+async def get_all_categories() -> list[dict]:
+    client = await _get_client()
+    response = (
+        await client.table("categories")
+        .select("id, nome, ativo")
+        .eq("ativo", True)
+        .order("nome")
+        .execute()
+    )
+    return response.data
+
+
+async def create_category_full(nome: str) -> dict:
+    client = await _get_client()
+    response = (
+        await client.table("categories")
+        .insert({"nome": nome})
+        .select("id, nome, ativo")
+        .execute()
+    )
+    return response.data[0]
+
+
+async def update_category(category_id: int, data: dict) -> dict | None:
+    client = await _get_client()
+    response = (
+        await client.table("categories")
+        .update(data)
+        .eq("id", category_id)
+        .select("id, nome, ativo")
+        .execute()
+    )
+    if not response.data:
+        return None
+    return response.data[0]
+
+
+async def deactivate_category(category_id: int) -> bool:
+    client = await _get_client()
+    response = (
+        await client.table("categories")
+        .update({"ativo": False})
+        .eq("id", category_id)
+        .select("id")
+        .execute()
+    )
+    return bool(response.data)
+
+
+async def get_expenses_by_year(year: int) -> list[Expense]:
+    return await get_expenses_by_period(date(year, 1, 1), date(year, 12, 31))

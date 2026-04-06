@@ -6,7 +6,7 @@ Documento de referência para o desenvolvimento do frontend. Cobre endpoints HTT
 
 ## HTTP Endpoints
 
-O backend expõe apenas 2 endpoints HTTP. A interface do usuário é inteiramente via Telegram Bot.
+O backend expõe endpoints para o Telegram Bot e uma REST API para o frontend, todos protegidos adequadamente.
 
 ### `GET /health`
 
@@ -23,35 +23,211 @@ Health check da aplicação.
 
 ### `POST /webhook`
 
-Recebe atualizações do Telegram. Uso exclusivo pelo Telegram Bot API — não chamado diretamente pelo frontend.
+Recebe atualizações do Telegram. Uso exclusivo pelo Telegram Bot API.
 
 **Headers obrigatórios:**
 ```
 X-Telegram-Bot-Api-Secret-Token: <TELEGRAM_WEBHOOK_SECRET>
 ```
 
-**Request body:** Telegram Update object (JSON)
-
-**Response `200 OK`:**
-```json
-{ "ok": true }
-```
-
-**Response `403 Forbidden`:** token inválido ou chat_id não autorizado
-
+**Response `200 OK`:** `{ "ok": true }`  
+**Response `403 Forbidden`:** token inválido ou IP fora dos ranges do Telegram  
 **Rate limit:** 30 req/min por IP
 
 ---
 
-## Acesso Direto ao Banco (Supabase)
+## REST API — Frontend
 
-O frontend pode acessar o Supabase diretamente via Supabase Client SDK ou REST API. Todas as tabelas têm RLS habilitado com service role.
+Todas as rotas `/api/*` exigem autenticação via **Supabase Auth JWT**:
 
-**Variáveis de conexão:**
-- `SUPABASE_URL` — URL do projeto Supabase
-- `SUPABASE_SERVICE_KEY` — chave de service role (acesso total)
+```
+Authorization: Bearer <jwt>
+```
 
-> **Nota:** Para o frontend web, use a **anon key** do Supabase (não a service key) e configure RLS adequadamente se o frontend precisar de acesso direto ao banco.
+| Código | Situação |
+|---|---|
+| `401` | Header ausente, malformado ou token inválido |
+| `403` | Token expirado |
+
+**CORS:** aceita origens `*.nathanfiorito.com.br` com métodos `GET, POST, PUT, PATCH, DELETE`.
+
+---
+
+### Despesas — `src/routers/expenses.py`
+
+#### `GET /api/expenses`
+
+Lista despesas com paginação e filtros opcionais.
+
+**Query params:**
+
+| Param | Tipo | Default | Descrição |
+|---|---|---|---|
+| `start` | `YYYY-MM-DD` | — | Início do período |
+| `end` | `YYYY-MM-DD` | — | Fim do período |
+| `categoria_id` | `int` | — | Filtrar por categoria |
+| `page` | `int` | `1` | Página (≥ 1) |
+| `page_size` | `int` | `20` | Itens por página (max 100) |
+
+**Response `200 OK`:**
+```json
+{
+  "items": [ ...Expense ],
+  "total": 42,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+---
+
+#### `GET /api/expenses/{id}`
+
+Retorna uma despesa pelo UUID.
+
+**Response `200 OK`:** `Expense`  
+**Response `404`:** despesa não encontrada
+
+---
+
+#### `POST /api/expenses`
+
+Cria uma despesa manualmente (sem fluxo de extração por IA).
+
+**Body:**
+```json
+{
+  "valor": "50.00",
+  "data": "2025-01-15",
+  "estabelecimento": "Mercado",
+  "descricao": "Compras",
+  "categoria_id": 1,
+  "cnpj": null,
+  "tipo_entrada": "texto"
+}
+```
+
+**Response `201 Created`:** `Expense`
+
+---
+
+#### `PUT /api/expenses/{id}`
+
+Atualiza campos de uma despesa existente.
+
+**Body:** qualquer subconjunto dos campos de `POST /api/expenses`  
+**Response `200 OK`:** `Expense` atualizada  
+**Response `404`:** despesa não encontrada
+
+---
+
+#### `DELETE /api/expenses/{id}`
+
+Remove uma despesa.
+
+**Response `204 No Content`**  
+**Response `404`:** despesa não encontrada
+
+---
+
+### Categorias — `src/routers/categories.py`
+
+#### `GET /api/categories`
+
+Lista categorias ativas (`ativo = true`).
+
+**Response `200 OK`:**
+```json
+[{ "id": 1, "nome": "Alimentação", "ativo": true }]
+```
+
+---
+
+#### `POST /api/categories`
+
+Cria uma nova categoria.
+
+**Body:** `{ "nome": "Nova Categoria" }`  
+**Response `201 Created`:** `CategoryOut`  
+**Response `409 Conflict`:** nome duplicado
+
+---
+
+#### `PATCH /api/categories/{id}`
+
+Atualização parcial — renomear e/ou ativar/desativar.
+
+**Body:** `{ "nome"?: str, "ativo"?: bool }`  
+**Response `200 OK`:** `CategoryOut`  
+**Response `404`:** categoria não encontrada
+
+---
+
+#### `DELETE /api/categories/{id}`
+
+Desativa a categoria (`ativo = false`). Não remove o registro.
+
+**Response `204 No Content`**  
+**Response `404`:** categoria não encontrada
+
+---
+
+### Relatórios — `src/routers/reports.py`
+
+#### `GET /api/reports/summary`
+
+Totais gastos por categoria num período, ordenados por valor desc.
+
+**Query params obrigatórios:** `start`, `end` (`YYYY-MM-DD`)
+
+**Response `200 OK`:**
+```json
+[
+  { "categoria": "Alimentação", "total": "245.90" },
+  { "categoria": "Transporte", "total": "123.50" }
+]
+```
+
+---
+
+#### `GET /api/reports/monthly`
+
+Breakdown mensal — retorna apenas meses com ao menos uma despesa.
+
+**Query params:** `year` (int, default: ano corrente)
+
+**Response `200 OK`:**
+```json
+[
+  {
+    "month": 1,
+    "total": "369.40",
+    "by_category": [
+      { "categoria": "Alimentação", "total": "245.90" }
+    ]
+  }
+]
+```
+
+---
+
+### Exportação — `src/routers/export.py`
+
+#### `GET /api/export/csv`
+
+Exporta despesas do período como arquivo CSV.
+
+**Query params obrigatórios:** `start`, `end` (`YYYY-MM-DD`)
+
+**Response `200 OK`:** arquivo CSV com header:
+```
+id,data,estabelecimento,descricao,categoria,valor,cnpj,tipo_entrada,confianca,created_at
+```
+
+**Response header:**
+```
+Content-Disposition: attachment; filename=expenses_<start>_<end>.csv
+```
 
 ---
 
@@ -213,13 +389,73 @@ Retorna o total gasto por categoria no período. Calculado em Python a partir de
 
 ### `get_active_categories() -> list[str]`
 
-Retorna nomes de todas as categorias com `ativo = true`, ordenadas por nome.
+Retorna nomes de todas as categorias com `ativo = true`, ordenadas por nome. Usado pelo bot.
 
 ---
 
 ### `add_category(nome: str) -> None`
 
-Insere uma nova categoria na tabela `categories`.
+Insere uma nova categoria na tabela `categories`. Usado pelo bot.
+
+---
+
+### `get_expenses_paginated(start, end, categoria_id, page, page_size) -> tuple[list[Expense], int]`
+
+Lista despesas com filtros opcionais e paginação. Retorna `(items, total)`. Usado pela REST API.
+
+---
+
+### `get_expense_by_id(expense_id: str) -> Expense | None`
+
+Busca uma despesa pelo UUID. Retorna `None` se não encontrada.
+
+---
+
+### `create_expense_direct(record: dict) -> Expense`
+
+Insere uma despesa diretamente no banco (sem fluxo de IA). Usado pela REST API.
+
+---
+
+### `update_expense(expense_id: str, data: dict) -> Expense | None`
+
+Atualiza campos de uma despesa. Retorna `None` se não encontrada.
+
+---
+
+### `delete_expense(expense_id: str) -> bool`
+
+Remove uma despesa. Retorna `False` se não encontrada.
+
+---
+
+### `get_all_categories() -> list[dict]`
+
+Retorna todas as categorias ativas (`ativo = true`) com `id`, `nome` e `ativo`. Usado pela REST API.
+
+---
+
+### `create_category_full(nome: str) -> dict`
+
+Insere uma categoria e retorna o registro completo (`id`, `nome`, `ativo`).
+
+---
+
+### `update_category(category_id: int, data: dict) -> dict | None`
+
+Atualiza campos de uma categoria. Retorna `None` se não encontrada.
+
+---
+
+### `deactivate_category(category_id: int) -> bool`
+
+Seta `ativo = false` numa categoria. Retorna `False` se não encontrada.
+
+---
+
+### `get_expenses_by_year(year: int) -> list[Expense]`
+
+Atalho para `get_expenses_by_period(date(year,1,1), date(year,12,31))`.
 
 ---
 
