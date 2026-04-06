@@ -10,7 +10,7 @@ Implementar a camada de persistência no Supabase (PostgreSQL), incluindo criaç
 
 ### Schema do Banco (Supabase SQL Editor)
 
-- [ ] Criar tabela `expenses`:
+- [ X ] Criar tabela `expenses`:
   ```sql
   CREATE TABLE expenses (
       id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -28,33 +28,33 @@ Implementar a camada de persistência no Supabase (PostgreSQL), incluindo criaç
       updated_at TIMESTAMPTZ DEFAULT NOW()
   );
   ```
-- [ ] Criar índices:
+- [ X ] Criar índices:
   ```sql
   CREATE INDEX idx_expenses_data ON expenses(data);
   CREATE INDEX idx_expenses_categoria ON expenses(categoria);
   CREATE INDEX idx_expenses_data_categoria ON expenses(data, categoria);
   ```
-- [ ] Habilitar Row Level Security (RLS) na tabela
-- [ ] Criar política RLS para service role (acesso total via `SUPABASE_SERVICE_KEY`)
+- [ X ] Habilitar Row Level Security (RLS) na tabela
+- [ X ] Criar política RLS para service role (acesso total via `SUPABASE_SERVICE_KEY`)
 
 ### Serviço de Banco (`src/services/database.py`)
 
-- [ ] `DatabaseClient` usando `supabase-py`:
+- [ X ] `DatabaseClient` usando `supabase-py`:
   - Inicializar com `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`
   
-- [ ] `save_expense(expense: ExtractedExpense, categoria: str) -> str` (retorna UUID)
+- [ X ] `save_expense(expense: ExtractedExpense, categoria: str) -> str` (retorna UUID)
   - Inserir no Supabase via client
   - Usar queries parametrizadas (nunca string concatenation)
   
-- [ ] `get_expenses_by_period(start: date, end: date) -> list[Expense]`
+- [ X ] `get_expenses_by_period(start: date, end: date) -> list[Expense]`
   - Para uso nos relatórios
   
-- [ ] `get_totals_by_category(start: date, end: date) -> dict[str, Decimal]`
+- [ X ] `get_totals_by_category(start: date, end: date) -> dict[str, Decimal]`
   - Agrega por categoria para relatórios
 
 ### Modelo de Dados Persistido (`src/models/expense.py`)
 
-- [ ] `Expense` (Pydantic — representa registro salvo):
+- [ X ] `Expense` (Pydantic — representa registro salvo):
   ```python
   class Expense(BaseModel):
       id: UUID
@@ -71,12 +71,12 @@ Implementar a camada de persistência no Supabase (PostgreSQL), incluindo criaç
 
 ### Segurança
 
-- [ ] Usar `SUPABASE_SERVICE_KEY` (não `ANON_KEY`) para operações server-side
-- [ ] Garantir que nenhuma query usa f-strings ou concatenação com input do usuário
+- [ X ] Usar `SUPABASE_SERVICE_KEY` (não `ANON_KEY`) para operações server-side
+- [ X ] Garantir que nenhuma query usa f-strings ou concatenação com input do usuário
 
 ### Testes
 
-- [ ] `tests/test_database.py`:
+- [ X ] `tests/test_database.py`:
   - Testar `save_expense` com dados válidos (mockar Supabase client)
   - Testar `get_totals_by_category` com dados de fixture
 
