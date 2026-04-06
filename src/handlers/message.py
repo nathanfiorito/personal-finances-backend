@@ -1,0 +1,127 @@
+import logging
+
+from src.agents import extractor
+from src.agents.extractor import ExtractionError
+from src.handlers.commands import dispatch_command
+from src.models.expense import ExtractedExpense
+from src.services import telegram
+from src.services.llm import LLMRateLimitError, LLMTimeoutError
+
+logger = logging.getLogger(__name__)
+
+
+def _get_largest_photo_file_id(photos: list[dict]) -> str:
+    return max(photos, key=lambda p: p["file_size"])["file_id"]
+
+
+def _format_extracted(expense: ExtractedExpense) -> str:
+    data_fmt = expense.data.strftime("%d/%m/%Y")
+    valor_fmt = f"R$ {expense.valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    confianca_pct = int(expense.confianca * 100)
+
+    lines = [
+        "📋 <b>Dados extraídos:</b>",
+        f"💰 Valor: <b>{valor_fmt}</b>",
+        f"📅 Data: {data_fmt}",
+    ]
+    if expense.estabelecimento:
+        lines.append(f"🏪 Estabelecimento: {expense.estabelecimento}")
+    if expense.descricao:
+        lines.append(f"📝 Descrição: {expense.descricao}")
+    if expense.cnpj:
+        lines.append(f"🔢 CNPJ: {expense.cnpj}")
+    lines.append(f"\n🎯 Confiança da extração: {confianca_pct}%")
+    return "\n".join(lines)
+
+
+async def handle_update(update: dict) -> None:
+    message = update.get("message") or update.get("edited_message")
+    callback_query = update.get("callback_query")
+
+    if callback_query:
+        await handle_callback(callback_query)
+        return
+
+    if not message:
+        return
+
+    chat_id: int = message["chat"]["id"]
+
+    if message.get("photo"):
+        await handle_photo(chat_id, message)
+    elif message.get("document"):
+        doc = message["document"]
+        if doc.get("mime_type") == "application/pdf":
+            await handle_pdf(chat_id, doc)
+        else:
+            await telegram.send_message(chat_id, "Por favor, envie uma imagem ou PDF.")
+    elif message.get("text"):
+        text: str = message["text"]
+        if text.startswith("/"):
+            await dispatch_command(chat_id, text)
+        else:
+            await handle_text(chat_id, text)
+    else:
+        await telegram.send_message(
+            chat_id, "Formato não suportado. Envie uma foto, PDF ou texto."
+        )
+
+
+async def handle_photo(chat_id: int, message: dict) -> None:
+    processing_msg = await telegram.send_message(chat_id, "⏳ Analisando comprovante...")
+    file_id = _get_largest_photo_file_id(message["photo"])
+
+    try:
+        image_bytes = await telegram.get_file(file_id)
+        expense = await extractor.extract_from_image(image_bytes)
+        await telegram.send_message(chat_id, _format_extracted(expense))
+        # MVP-M4: adicionar botões de confirmação aqui
+    except LLMTimeoutError:
+        await telegram.send_message(chat_id, "⏱️ O serviço de IA demorou demais. Tente novamente.")
+    except LLMRateLimitError:
+        await telegram.send_message(chat_id, "⚠️ Muitas requisições. Aguarde alguns segundos e tente novamente.")
+    except ExtractionError as e:
+        logger.warning("Falha na extração de imagem: %s", e)
+        await telegram.send_message(
+            chat_id,
+            "⚠️ Não consegui extrair os dados deste comprovante. "
+            "Tente enviar uma foto mais nítida ou descreva a despesa em texto.",
+        )
+    except Exception:
+        logger.exception("Erro inesperado ao processar imagem")
+        await telegram.send_message(chat_id, "❌ Ocorreu um erro inesperado. Tente novamente.")
+
+
+async def handle_text(chat_id: int, text: str) -> None:
+    await telegram.send_message(chat_id, "⏳ Processando...")
+
+    try:
+        expense = await extractor.extract_from_text(text)
+        await telegram.send_message(chat_id, _format_extracted(expense))
+        # MVP-M4: adicionar botões de confirmação aqui
+    except LLMTimeoutError:
+        await telegram.send_message(chat_id, "⏱️ O serviço de IA demorou demais. Tente novamente.")
+    except LLMRateLimitError:
+        await telegram.send_message(chat_id, "⚠️ Muitas requisições. Aguarde alguns segundos e tente novamente.")
+    except ExtractionError as e:
+        logger.warning("Falha na extração de texto: %s", e)
+        await telegram.send_message(
+            chat_id,
+            "⚠️ Não entendi a despesa. Tente algo como: <i>\"gastei 50 reais no mercado\"</i>",
+        )
+    except Exception:
+        logger.exception("Erro inesperado ao processar texto")
+        await telegram.send_message(chat_id, "❌ Ocorreu um erro inesperado. Tente novamente.")
+
+
+async def handle_pdf(chat_id: int, document: dict) -> None:
+    await telegram.send_message(chat_id, "⏳ Processando PDF...")
+    # MVP-S3: implementar extração de PDF
+    await telegram.send_message(
+        chat_id, "📄 Suporte a PDF chegando em breve! Por enquanto, tire uma foto do documento."
+    )
+
+
+async def handle_callback(callback_query: dict) -> None:
+    # MVP-M4: implementar fluxo de confirmação
+    await telegram.answer_callback(callback_query["id"])
