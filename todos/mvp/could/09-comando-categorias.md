@@ -17,7 +17,7 @@ Permitir ao usuário listar as categorias existentes e futuramente criar/editar 
 
 ### Schema (Supabase)
 
-- [ ] Criar tabela `categories` (ver `ARCHITECTURE.md`):
+- [ X ] Criar tabela `categories` (ver `ARCHITECTURE.md`):
   ```sql
   CREATE TABLE categories (
       id SERIAL PRIMARY KEY,
@@ -28,20 +28,20 @@ Permitir ao usuário listar as categorias existentes e futuramente criar/editar 
       created_at TIMESTAMPTZ DEFAULT NOW()
   );
   ```
-- [ ] Popular com as 10 categorias padrão
+- [ X ] Popular com as 10 categorias padrão
 
 ### Database (`src/services/database.py`)
 
-- [ ] `get_active_categories() -> list[str]`
+- [ X ] `get_active_categories() -> list[str]`
 
 ### Handler (`src/handlers/commands.py`)
 
-- [ ] `/categorias` → listar categorias ativas formatadas
+- [ X ] `/categorias` → listar categorias ativas formatadas
 
 ### Integração com Categorizador
 
-- [ ] `categorizer.py` deve buscar categorias do banco ao invés de lista hardcoded
-- [ ] Cachear categorias por 5 minutos para evitar query a cada categorização
+- [ X ] `categorizer.py` deve buscar categorias do banco ao invés de lista hardcoded
+- [ X ] Cachear categorias por 5 minutos para evitar query a cada categorização
 
 ## Dependências
 

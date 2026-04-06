@@ -10,17 +10,17 @@ Permitir exportar as despesas de um período como arquivo CSV ou Excel, enviado 
 
 ```
 /exportar mes        → CSV do mês corrente
-/exportar 2024-01    → CSV de janeiro de 2024
+/exportar 01/2024    → CSV de janeiro de 2024 (MM/AAAA)
 ```
 
 ## Tarefas
 
-- [ ] Handler `/exportar` com parsing de período
-- [ ] `database.get_expenses_by_period()` → já existe (reutilizar)
-- [ ] Gerar CSV em memória com `csv.DictWriter` (sem criar arquivo em disco):
+- [ X ] Handler `/exportar` com parsing de período
+- [ X ] `database.get_expenses_by_period()` → já existe (reutilizar)
+- [ X ] Gerar CSV em memória com `csv.DictWriter` (sem criar arquivo em disco):
   - Colunas: `data`, `valor`, `estabelecimento`, `categoria`, `descricao`, `cnpj`, `tipo_entrada`
-- [ ] Enviar como `document` via Telegram com nome `despesas_{periodo}.csv`
-- [ ] Dependência opcional `openpyxl` para versão Excel (`.xlsx`)
+- [ X ] Enviar como `document` via Telegram com nome `despesas_{periodo}.csv`
+- [ X ] Dependência opcional `openpyxl` para versão Excel (`.xlsx`)
 
 ## Critérios de Aceite
 
