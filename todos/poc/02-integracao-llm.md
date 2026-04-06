@@ -10,25 +10,25 @@ Integrar o Claude Sonnet 4.6 via OpenRouter para extração de dados estruturado
 
 ### Serviço LLM (`src/services/llm.py`)
 
-- [ ] Criar cliente OpenRouter usando o SDK `openai` apontado para `https://openrouter.ai/api/v1`
-- [ ] Configurar modelo padrão: `anthropic/claude-sonnet-4-6` (visão) e `anthropic/claude-haiku-4-5` (texto)
-- [ ] Configurar timeout de 30s nas chamadas
-- [ ] Implementar retry com backoff exponencial (3 tentativas)
+- [ X ] Criar cliente OpenRouter usando o SDK `openai` apontado para `https://openrouter.ai/api/v1`
+- [ X ] Configurar modelo padrão: `anthropic/claude-sonnet-4-6` (visão) e `anthropic/claude-haiku-4-5` (texto)
+- [ X ] Configurar timeout de 30s nas chamadas
+- [ X ] Implementar retry com backoff exponencial (3 tentativas)
 
 ### Agente Extrator (`src/agents/extractor.py`)
 
-- [ ] Implementar `extract_from_image(image_bytes: bytes) -> ExtractedExpense`
+- [ X ] Implementar `extract_from_image(image_bytes: bytes) -> ExtractedExpense`
   - Baixar imagem via Telegram File API
   - Encodar em base64
   - Enviar ao Sonnet 4.6 com o prompt de extração
   - Parsear resposta JSON com Pydantic
-- [ ] Implementar `extract_from_text(text: str) -> ExtractedExpense`
+- [ X ] Implementar `extract_from_text(text: str) -> ExtractedExpense`
   - Enviar ao Haiku 4.5 com prompt de extração simples
-- [ ] Definir prompt de extração de imagem (ver seção Prompt abaixo)
+- [ X ] Definir prompt de extração de imagem (ver seção Prompt abaixo)
 
 ### Modelo de Dados (`src/models/expense.py`)
 
-- [ ] Criar `ExtractedExpense` (Pydantic model):
+- [ X ] Criar `ExtractedExpense` (Pydantic model):
   ```python
   class ExtractedExpense(BaseModel):
       valor: Decimal
@@ -43,9 +43,9 @@ Integrar o Claude Sonnet 4.6 via OpenRouter para extração de dados estruturado
 
 ### Handler de Mensagem (`src/handlers/message.py`)
 
-- [ ] Handler para foto: baixa imagem e chama `extract_from_image`
-- [ ] Handler para texto: chama `extract_from_text`
-- [ ] Responder no Telegram com o JSON extraído formatado (para validação na POC)
+- [ X ] Handler para foto: baixa imagem e chama `extract_from_image`
+- [ X ] Handler para texto: chama `extract_from_text`
+- [ X ] Responder no Telegram com o JSON extraído formatado (para validação na POC)
 
 ## Prompt de Extração (Imagem)
 

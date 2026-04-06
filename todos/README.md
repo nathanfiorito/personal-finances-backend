@@ -11,7 +11,7 @@ Objetivo: validar extração de dados de comprovantes com Claude Sonnet 4.6 via 
 | # | Tarefa | Status |
 |---|---|---|
 | 1 | [Setup do projeto](./poc/01-setup.md) | ✅ |
-| 2 | [Integração OpenRouter + prompt engineering](./poc/02-integracao-llm.md) | ⬜ |
+| 2 | [Integração OpenRouter + prompt engineering](./poc/02-integracao-llm.md) | ✅ |
 | 3 | [Testes de acurácia com comprovantes reais](./poc/03-testes-acuracia.md) | ⬜ |
 | 4 | [Relatório de resultados e decisão go/no-go](./poc/04-go-nogo.md) | ⬜ |
 

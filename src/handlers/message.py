@@ -1,7 +1,9 @@
 import logging
 
-from src.config.settings import settings
+from src.agents import extractor
+from src.agents.extractor import ExtractionError
 from src.handlers.commands import dispatch_command
+from src.models.expense import ExtractedExpense
 from src.services import telegram
 
 logger = logging.getLogger(__name__)
@@ -9,6 +11,26 @@ logger = logging.getLogger(__name__)
 
 def _get_largest_photo_file_id(photos: list[dict]) -> str:
     return max(photos, key=lambda p: p["file_size"])["file_id"]
+
+
+def _format_extracted(expense: ExtractedExpense) -> str:
+    data_fmt = expense.data.strftime("%d/%m/%Y")
+    valor_fmt = f"R$ {expense.valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    confianca_pct = int(expense.confianca * 100)
+
+    lines = [
+        "📋 <b>Dados extraídos:</b>",
+        f"💰 Valor: <b>{valor_fmt}</b>",
+        f"📅 Data: {data_fmt}",
+    ]
+    if expense.estabelecimento:
+        lines.append(f"🏪 Estabelecimento: {expense.estabelecimento}")
+    if expense.descricao:
+        lines.append(f"📝 Descrição: {expense.descricao}")
+    if expense.cnpj:
+        lines.append(f"🔢 CNPJ: {expense.cnpj}")
+    lines.append(f"\n🎯 Confiança da extração: {confianca_pct}%")
+    return "\n".join(lines)
 
 
 async def handle_update(update: dict) -> None:
@@ -45,46 +67,52 @@ async def handle_update(update: dict) -> None:
 
 
 async def handle_photo(chat_id: int, message: dict) -> None:
-    await telegram.send_message(chat_id, "⏳ Processando comprovante...")
-
+    processing_msg = await telegram.send_message(chat_id, "⏳ Analisando comprovante...")
     file_id = _get_largest_photo_file_id(message["photo"])
-    image_bytes = await telegram.get_file(file_id)
 
-    # POC: retorna payload bruto para validação
-    # MVP-M2 irá substituir por: extracted = await extractor.extract_from_image(image_bytes)
-    logger.info("Imagem recebida: %d bytes, chat_id=%d", len(image_bytes), chat_id)
-    await telegram.send_message(
-        chat_id,
-        f"📷 Imagem recebida ({len(image_bytes):,} bytes). Extração em breve!",
-    )
+    try:
+        image_bytes = await telegram.get_file(file_id)
+        expense = await extractor.extract_from_image(image_bytes)
+        await telegram.send_message(chat_id, _format_extracted(expense))
+        # MVP-M4: adicionar botões de confirmação aqui
+    except ExtractionError as e:
+        logger.warning("Falha na extração de imagem: %s", e)
+        await telegram.send_message(
+            chat_id,
+            "⚠️ Não consegui extrair os dados deste comprovante. "
+            "Tente enviar uma foto mais nítida ou descreva a despesa em texto.",
+        )
+    except Exception:
+        logger.exception("Erro inesperado ao processar imagem")
+        await telegram.send_message(chat_id, "❌ Ocorreu um erro inesperado. Tente novamente.")
 
 
 async def handle_text(chat_id: int, text: str) -> None:
     await telegram.send_message(chat_id, "⏳ Processando...")
 
-    # POC: eco do texto para validação
-    # MVP-M2 irá substituir por: extracted = await extractor.extract_from_text(text)
-    logger.info("Texto recebido: %r, chat_id=%d", text, chat_id)
-    await telegram.send_message(
-        chat_id,
-        f"✍️ Texto recebido: <i>{text}</i>. Extração em breve!",
-    )
+    try:
+        expense = await extractor.extract_from_text(text)
+        await telegram.send_message(chat_id, _format_extracted(expense))
+        # MVP-M4: adicionar botões de confirmação aqui
+    except ExtractionError as e:
+        logger.warning("Falha na extração de texto: %s", e)
+        await telegram.send_message(
+            chat_id,
+            "⚠️ Não entendi a despesa. Tente algo como: <i>\"gastei 50 reais no mercado\"</i>",
+        )
+    except Exception:
+        logger.exception("Erro inesperado ao processar texto")
+        await telegram.send_message(chat_id, "❌ Ocorreu um erro inesperado. Tente novamente.")
 
 
 async def handle_pdf(chat_id: int, document: dict) -> None:
     await telegram.send_message(chat_id, "⏳ Processando PDF...")
-
-    file_bytes = await telegram.get_file(document["file_id"])
-
-    # MVP-S3 irá substituir por: extracted = await extractor.extract_from_pdf(file_bytes)
-    logger.info("PDF recebido: %d bytes, chat_id=%d", len(file_bytes), chat_id)
+    # MVP-S3: implementar extração de PDF
     await telegram.send_message(
-        chat_id,
-        f"📄 PDF recebido ({len(file_bytes):,} bytes). Extração em breve!",
+        chat_id, "📄 Suporte a PDF chegando em breve! Por enquanto, tire uma foto do documento."
     )
 
 
 async def handle_callback(callback_query: dict) -> None:
-    # MVP-M4 irá implementar o fluxo de confirmação
-    callback_query_id = callback_query["id"]
-    await telegram.answer_callback(callback_query_id)
+    # MVP-M4: implementar fluxo de confirmação
+    await telegram.answer_callback(callback_query["id"])
