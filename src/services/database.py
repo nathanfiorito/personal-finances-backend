@@ -36,6 +36,18 @@ async def save_expense(expense: ExtractedExpense, categoria: str) -> str:
     return response.data[0]["id"]
 
 
+async def get_recent_expenses(limit: int = 3) -> list[Expense]:
+    client = await _get_client()
+    response = (
+        await client.table("expenses")
+        .select("*")
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return [Expense(**row) for row in response.data]
+
+
 async def get_expenses_by_period(start: date, end: date) -> list[Expense]:
     client = await _get_client()
     response = (

@@ -19,6 +19,15 @@ def _confirmation_keyboard() -> dict:
     }
 
 
+def _duplicate_warning_keyboard() -> dict:
+    return {
+        "inline_keyboard": [[
+            {"text": "💾 Salvar mesmo assim", "callback_data": "force_confirm"},
+            {"text": "❌ Cancelar", "callback_data": "cancel"},
+        ]]
+    }
+
+
 def _categories_keyboard() -> dict:
     from src.agents.categorizer import CATEGORIES
     rows = []

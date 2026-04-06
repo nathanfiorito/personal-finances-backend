@@ -18,34 +18,8 @@ async def _try_edit(chat_id: int, message_id: int, text: str, **kwargs) -> None:
             logger.error("send_message também falhou para chat_id=%s", chat_id)
 
 
-async def handle_callback(callback_query: dict) -> None:
-    callback_id = callback_query["id"]
-    chat_id: int = callback_query["message"]["chat"]["id"]
-    message_id: int = callback_query["message"]["message_id"]
-    data: str = callback_query.get("data", "")
-
-    if data == "confirm":
-        await _handle_confirm(callback_id, chat_id, message_id)
-    elif data == "cancel":
-        await _handle_cancel(callback_id, chat_id, message_id)
-    elif data == "edit_category":
-        await _handle_edit_category(callback_id, chat_id, message_id)
-    elif data.startswith("set_category:"):
-        categoria = data.removeprefix("set_category:")
-        await _handle_set_category(callback_id, chat_id, message_id, categoria)
-    else:
-        await telegram.answer_callback(callback_id)
-
-
-async def _handle_confirm(callback_id: str, chat_id: int, message_id: int) -> None:
-    pending = pending_store.get(chat_id)
-
-    if pending is None:
-        await telegram.answer_callback(callback_id, "⏱️ Operação expirada. Envie novamente.")
-        await _try_edit(chat_id, message_id, "⏱️ Operação expirada. Envie a despesa novamente.")
-        return
-
-    await telegram.answer_callback(callback_id)
+async def _do_save(chat_id: int, message_id: int, pending) -> None:
+    """Persists the pending expense and sends the result to the user."""
     await _try_edit(chat_id, message_id, "⏳ Gravando no banco de dados...")
 
     saved = False
@@ -66,6 +40,69 @@ async def _handle_confirm(callback_id: str, chat_id: int, message_id: int) -> No
         )
     else:
         await telegram.send_message(chat_id, "❌ Erro ao salvar a despesa. Tente novamente.")
+
+
+async def handle_callback(callback_query: dict) -> None:
+    callback_id = callback_query["id"]
+    chat_id: int = callback_query["message"]["chat"]["id"]
+    message_id: int = callback_query["message"]["message_id"]
+    data: str = callback_query.get("data", "")
+
+    if data == "confirm":
+        await _handle_confirm(callback_id, chat_id, message_id)
+    elif data == "force_confirm":
+        await _handle_force_confirm(callback_id, chat_id, message_id)
+    elif data == "cancel":
+        await _handle_cancel(callback_id, chat_id, message_id)
+    elif data == "edit_category":
+        await _handle_edit_category(callback_id, chat_id, message_id)
+    elif data.startswith("set_category:"):
+        categoria = data.removeprefix("set_category:")
+        await _handle_set_category(callback_id, chat_id, message_id, categoria)
+    else:
+        await telegram.answer_callback(callback_id)
+
+
+async def _handle_confirm(callback_id: str, chat_id: int, message_id: int) -> None:
+    pending = pending_store.get(chat_id)
+    if pending is None:
+        await telegram.answer_callback(callback_id, "⏱️ Operação expirada. Envie novamente.")
+        await _try_edit(chat_id, message_id, "⏱️ Operação expirada. Envie a despesa novamente.")
+        return
+
+    await telegram.answer_callback(callback_id)
+    await _try_edit(chat_id, message_id, "⏳ Verificando duplicidades...")
+
+    duplicate_reason: str | None = None
+    try:
+        from src.agents.duplicate_checker import check_duplicate
+        from src.services import database
+        recent = await database.get_recent_expenses(3)
+        duplicate_reason = await check_duplicate(pending.extracted, recent)
+    except Exception:
+        logger.warning("Falha na verificação de duplicidade, prosseguindo com o salvamento")
+
+    if duplicate_reason:
+        await _try_edit(
+            chat_id,
+            message_id,
+            f"⚠️ <b>Possível duplicidade detectada</b>\n\n{duplicate_reason}\n\nDeseja salvar mesmo assim?",
+            reply_markup=telegram._duplicate_warning_keyboard(),
+        )
+        return
+
+    await _do_save(chat_id, message_id, pending)
+
+
+async def _handle_force_confirm(callback_id: str, chat_id: int, message_id: int) -> None:
+    pending = pending_store.get(chat_id)
+    if pending is None:
+        await telegram.answer_callback(callback_id, "⏱️ Operação expirada. Envie novamente.")
+        await _try_edit(chat_id, message_id, "⏱️ Operação expirada. Envie a despesa novamente.")
+        return
+
+    await telegram.answer_callback(callback_id)
+    await _do_save(chat_id, message_id, pending)
 
 
 async def _handle_cancel(callback_id: str, chat_id: int, message_id: int) -> None:
