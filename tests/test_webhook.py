@@ -130,7 +130,7 @@ class TestRouting:
         assert mock_pdf.call_args[0][0] == ALLOWED_CHAT_ID
 
     def test_callback_query_calls_handle_callback(self, mocker):
-        mock_cb = mocker.patch("src.handlers.message.handle_callback")
+        mock_cb = mocker.patch("src.handlers.callback.handle_callback", new_callable=mocker.AsyncMock)
         client.post("/webhook", json=_callback_update(ALLOWED_CHAT_ID, "confirm:12345"), headers=HEADERS)
         mock_cb.assert_called_once()
 

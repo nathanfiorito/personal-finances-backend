@@ -3,6 +3,7 @@ import logging
 from src.agents import extractor, categorizer
 from src.agents.extractor import ExtractionError
 from src.handlers.commands import dispatch_command
+from src.models import pending as pending_store
 from src.models.expense import ExtractedExpense
 from src.services import telegram
 from src.services.llm import LLMRateLimitError, LLMTimeoutError
@@ -20,7 +21,7 @@ def _format_extracted(expense: ExtractedExpense, categoria: str) -> str:
     confianca_pct = int(expense.confianca * 100)
 
     lines = [
-        "📋 <b>Dados extraídos:</b>",
+        "📋 <b>Despesa detectada:</b>",
         f"💰 Valor: <b>{valor_fmt}</b>",
         f"📅 Data: {data_fmt}",
     ]
@@ -31,8 +32,18 @@ def _format_extracted(expense: ExtractedExpense, categoria: str) -> str:
     if expense.cnpj:
         lines.append(f"🔢 CNPJ: {expense.cnpj}")
     lines.append(f"🏷️ Categoria: <b>{categoria}</b>")
-    lines.append(f"\n🎯 Confiança da extração: {confianca_pct}%")
+    lines.append(f"\n🎯 Confiança: {confianca_pct}%")
     return "\n".join(lines)
+
+
+async def _send_confirmation(chat_id: int, expense: ExtractedExpense, categoria: str) -> None:
+    msg = await telegram.send_message(
+        chat_id,
+        _format_extracted(expense, categoria),
+        reply_markup=telegram._confirmation_keyboard(),
+    )
+    message_id = msg["result"]["message_id"]
+    pending_store.save(chat_id, expense, categoria, message_id)
 
 
 async def handle_update(update: dict) -> None:
@@ -40,6 +51,7 @@ async def handle_update(update: dict) -> None:
     callback_query = update.get("callback_query")
 
     if callback_query:
+        from src.handlers.callback import handle_callback
         await handle_callback(callback_query)
         return
 
@@ -69,15 +81,14 @@ async def handle_update(update: dict) -> None:
 
 
 async def handle_photo(chat_id: int, message: dict) -> None:
-    processing_msg = await telegram.send_message(chat_id, "⏳ Analisando comprovante...")
+    await telegram.send_message(chat_id, "⏳ Analisando comprovante...")
     file_id = _get_largest_photo_file_id(message["photo"])
 
     try:
         image_bytes = await telegram.get_file(file_id)
         expense = await extractor.extract_from_image(image_bytes)
         categoria = await categorizer.categorize(expense)
-        await telegram.send_message(chat_id, _format_extracted(expense, categoria))
-        # MVP-M4: adicionar botões de confirmação aqui
+        await _send_confirmation(chat_id, expense, categoria)
     except LLMTimeoutError:
         await telegram.send_message(chat_id, "⏱️ O serviço de IA demorou demais. Tente novamente.")
     except LLMRateLimitError:
@@ -100,8 +111,7 @@ async def handle_text(chat_id: int, text: str) -> None:
     try:
         expense = await extractor.extract_from_text(text)
         categoria = await categorizer.categorize(expense)
-        await telegram.send_message(chat_id, _format_extracted(expense, categoria))
-        # MVP-M4: adicionar botões de confirmação aqui
+        await _send_confirmation(chat_id, expense, categoria)
     except LLMTimeoutError:
         await telegram.send_message(chat_id, "⏱️ O serviço de IA demorou demais. Tente novamente.")
     except LLMRateLimitError:
@@ -123,8 +133,3 @@ async def handle_pdf(chat_id: int, document: dict) -> None:
     await telegram.send_message(
         chat_id, "📄 Suporte a PDF chegando em breve! Por enquanto, tire uma foto do documento."
     )
-
-
-async def handle_callback(callback_query: dict) -> None:
-    # MVP-M4: implementar fluxo de confirmação
-    await telegram.answer_callback(callback_query["id"])

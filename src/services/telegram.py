@@ -9,6 +9,25 @@ logger = logging.getLogger(__name__)
 TELEGRAM_API = f"https://api.telegram.org/bot{settings.telegram_bot_token}"
 
 
+def _confirmation_keyboard() -> dict:
+    return {
+        "inline_keyboard": [[
+            {"text": "✅ Confirmar", "callback_data": "confirm"},
+            {"text": "✏️ Categoria", "callback_data": "edit_category"},
+            {"text": "❌ Cancelar", "callback_data": "cancel"},
+        ]]
+    }
+
+
+def _categories_keyboard() -> dict:
+    from src.agents.categorizer import CATEGORIES
+    rows = []
+    for i in range(0, len(CATEGORIES), 2):
+        row = [{"text": cat, "callback_data": f"set_category:{cat}"} for cat in CATEGORIES[i:i+2]]
+        rows.append(row)
+    return {"inline_keyboard": rows}
+
+
 async def send_message(chat_id: int, text: str, parse_mode: str = "HTML", **kwargs) -> dict:
     async with httpx.AsyncClient() as client:
         response = await client.post(
