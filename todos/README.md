@@ -25,7 +25,7 @@ Objetivo: validar extração de dados de comprovantes com Claude Sonnet 4.6 via 
 |---|---|---|
 | M1 | [Webhook Telegram (receber foto/texto)](./mvp/must/01-webhook-telegram.md) | ✅ |
 | M2 | [Agente Extrator](./mvp/must/02-agente-extrator.md) | ✅ |
-| M3 | [Agente Categorizador](./mvp/must/03-agente-categorizador.md) | ⬜ |
+| M3 | [Agente Categorizador](./mvp/must/03-agente-categorizador.md) | ✅ |
 | M4 | [Fluxo de confirmação (inline keyboards)](./mvp/must/04-fluxo-confirmacao.md) | ⬜ |
 | M5 | [Persistência no Supabase](./mvp/must/05-persistencia.md) | ⬜ |
 

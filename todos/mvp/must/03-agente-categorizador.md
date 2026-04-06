@@ -23,7 +23,7 @@ Classificar automaticamente uma despesa extraída em uma das categorias pré-def
 
 ### Agente Categorizador (`src/agents/categorizer.py`)
 
-- [ ] `categorize(expense: ExtractedExpense) -> str`
+- [ X ] `categorize(expense: ExtractedExpense) -> str`
   - Modelo: `anthropic/claude-haiku-4-5`
   - Input: `estabelecimento`, `descricao`, `dados_raw` da despesa
   - Output: nome exato de uma das 10 categorias
@@ -51,7 +51,7 @@ Responda APENAS com o nome exato da categoria, sem explicação.
 
 ### Testes
 
-- [ ] `tests/test_categorizer.py`:
+- [ X ] `tests/test_categorizer.py`:
   - Mockar chamada ao Haiku
   - Testar categorização de "Supermercado Extra" → Alimentação
   - Testar categorização de "Uber" → Transporte

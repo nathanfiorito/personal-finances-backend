@@ -1,6 +1,6 @@
 import logging
 
-from src.agents import extractor
+from src.agents import extractor, categorizer
 from src.agents.extractor import ExtractionError
 from src.handlers.commands import dispatch_command
 from src.models.expense import ExtractedExpense
@@ -14,7 +14,7 @@ def _get_largest_photo_file_id(photos: list[dict]) -> str:
     return max(photos, key=lambda p: p["file_size"])["file_id"]
 
 
-def _format_extracted(expense: ExtractedExpense) -> str:
+def _format_extracted(expense: ExtractedExpense, categoria: str) -> str:
     data_fmt = expense.data.strftime("%d/%m/%Y")
     valor_fmt = f"R$ {expense.valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     confianca_pct = int(expense.confianca * 100)
@@ -30,6 +30,7 @@ def _format_extracted(expense: ExtractedExpense) -> str:
         lines.append(f"📝 Descrição: {expense.descricao}")
     if expense.cnpj:
         lines.append(f"🔢 CNPJ: {expense.cnpj}")
+    lines.append(f"🏷️ Categoria: <b>{categoria}</b>")
     lines.append(f"\n🎯 Confiança da extração: {confianca_pct}%")
     return "\n".join(lines)
 
@@ -74,7 +75,8 @@ async def handle_photo(chat_id: int, message: dict) -> None:
     try:
         image_bytes = await telegram.get_file(file_id)
         expense = await extractor.extract_from_image(image_bytes)
-        await telegram.send_message(chat_id, _format_extracted(expense))
+        categoria = await categorizer.categorize(expense)
+        await telegram.send_message(chat_id, _format_extracted(expense, categoria))
         # MVP-M4: adicionar botões de confirmação aqui
     except LLMTimeoutError:
         await telegram.send_message(chat_id, "⏱️ O serviço de IA demorou demais. Tente novamente.")
@@ -97,7 +99,8 @@ async def handle_text(chat_id: int, text: str) -> None:
 
     try:
         expense = await extractor.extract_from_text(text)
-        await telegram.send_message(chat_id, _format_extracted(expense))
+        categoria = await categorizer.categorize(expense)
+        await telegram.send_message(chat_id, _format_extracted(expense, categoria))
         # MVP-M4: adicionar botões de confirmação aqui
     except LLMTimeoutError:
         await telegram.send_message(chat_id, "⏱️ O serviço de IA demorou demais. Tente novamente.")
