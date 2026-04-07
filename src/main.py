@@ -61,6 +61,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="FinBot", docs_url=None, redoc_url=None, lifespan=lifespan)
+# TODO(security/F-01): Disable OpenAPI schema in production to avoid exposing full API map to unauthenticated users.
+# Add openapi_url=None to the FastAPI constructor above.
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -72,6 +74,13 @@ app.add_middleware(
     allow_headers=["*"],
     allow_credentials=False,
 )
+
+
+# TODO(security/F-04): Add security headers middleware below.
+# response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+# response.headers["X-Content-Type-Options"] = "nosniff"
+# response.headers["X-Frame-Options"] = "DENY"
+# response.headers["Referrer-Policy"] = "no-referrer"
 
 
 @app.middleware("http")
@@ -110,6 +119,9 @@ async def webhook(request: Request) -> dict:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     # 2. Validate source IP is from Telegram
+    # TODO(security/F-02): IP trust depends on CF-Connecting-IP header being set by Cloudflare.
+    # If this app is ever accessed directly (bypassing Cloudflare), the header can be spoofed.
+    # Document this Cloudflare dependency or add a guard for direct-access scenarios.
     client_ip = request.headers.get("CF-Connecting-IP") or request.client.host
     if not _is_telegram_ip(client_ip):
         logger.warning("Webhook chamado de IP não-Telegram: %s", client_ip)

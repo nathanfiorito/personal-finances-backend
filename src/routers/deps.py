@@ -35,6 +35,9 @@ async def get_current_user(authorization: str | None = Header(default=None, alia
         return response.user
     except Exception as e:
         logger.debug("Falha na validação do JWT: %s", e)
+        # TODO(security/F-08): Normalize all auth failures to a single 401 response to avoid
+        # token state enumeration (expired vs. invalid vs. missing are currently distinguishable).
+        # Replace the branching below with a single: raise HTTPException(401, "Unauthorized")
         if _is_token_expired(token):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
