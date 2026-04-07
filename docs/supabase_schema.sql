@@ -1,34 +1,14 @@
--- FinBot: Schema inicial
--- Rodar no SQL Editor do Supabase (Settings > SQL Editor)
-
-CREATE TABLE IF NOT EXISTS expenses (
-    id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    valor           DECIMAL(10,2) NOT NULL,
-    data            DATE NOT NULL,
-    estabelecimento VARCHAR(255),
-    descricao       TEXT,
-    categoria       VARCHAR(100) NOT NULL,
-    cnpj            VARCHAR(18),
-    localizacao     VARCHAR(255),
-    tipo_entrada    VARCHAR(20) NOT NULL CHECK (tipo_entrada IN ('imagem', 'texto', 'pdf')),
-    confianca       DECIMAL(3,2) CHECK (confianca BETWEEN 0.00 AND 1.00),
-    dados_raw       JSONB DEFAULT '{}',
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_expenses_data           ON expenses(data);
-CREATE INDEX IF NOT EXISTS idx_expenses_categoria      ON expenses(categoria);
-CREATE INDEX IF NOT EXISTS idx_expenses_data_categoria ON expenses(data, categoria);
-
--- Row Level Security
-ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
-
--- Política: service role tem acesso total (usado pelo backend via SUPABASE_SERVICE_KEY)
-CREATE POLICY "service role full access"
-    ON expenses
-    USING (true)
-    WITH CHECK (true);
+-- FinBot: Schema atual
+-- Estado reflete todas as migrations aplicadas até agora.
+-- Para criar o banco do zero, execute este arquivo no SQL Editor do Supabase.
+--
+-- Histórico de migrations aplicadas:
+--   1. Schema inicial (tabela expenses + categorias)
+--   2. FK expenses.categoria_id → categories.id; drop coluna texto categoria
+--   3. Rename expenses → transactions; add transaction_type
+--
+-- Para atualizar um banco existente, use os arquivos em docs/:
+--   - migration_transactions.sql
 
 -- ============================================================
 -- Categorias
@@ -63,30 +43,34 @@ INSERT INTO categories (nome) VALUES
 ON CONFLICT (nome) DO NOTHING;
 
 -- ============================================================
--- Migration: FK expenses.categoria_id → categories.id
--- Run this AFTER the initial schema and seed above.
+-- Transactions
 -- ============================================================
 
--- 1. Add nullable FK column
-ALTER TABLE expenses ADD COLUMN IF NOT EXISTS categoria_id INT REFERENCES categories(id);
+CREATE TABLE IF NOT EXISTS transactions (
+    id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    valor           DECIMAL(10,2) NOT NULL,
+    data            DATE NOT NULL,
+    estabelecimento VARCHAR(255),
+    descricao       TEXT,
+    categoria_id    INT NOT NULL REFERENCES categories(id),
+    cnpj            VARCHAR(18),
+    tipo_entrada    VARCHAR(20) NOT NULL CHECK (tipo_entrada IN ('imagem', 'texto', 'pdf')),
+    transaction_type VARCHAR(10) NOT NULL DEFAULT 'outcome'
+                        CHECK (transaction_type IN ('income', 'outcome')),
+    confianca       DECIMAL(3,2) CHECK (confianca BETWEEN 0.00 AND 1.00),
+    dados_raw       JSONB DEFAULT '{}',
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
 
--- 2. Populate from existing text column (match by name)
-UPDATE expenses
-SET categoria_id = (
-    SELECT id FROM categories WHERE nome = expenses.categoria
-)
-WHERE categoria_id IS NULL;
+CREATE INDEX IF NOT EXISTS idx_transactions_data              ON transactions(data);
+CREATE INDEX IF NOT EXISTS idx_transactions_categoria_id      ON transactions(categoria_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_data_categoria_id ON transactions(data, categoria_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_transaction_type  ON transactions(transaction_type);
 
--- 3. Fallback: rows that didn't match any category → "Outros"
-UPDATE expenses
-SET categoria_id = (SELECT id FROM categories WHERE nome = 'Outros')
-WHERE categoria_id IS NULL;
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 
--- 4. Enforce NOT NULL now that all rows are filled
-ALTER TABLE expenses ALTER COLUMN categoria_id SET NOT NULL;
-
--- 5. Index for join performance
-CREATE INDEX IF NOT EXISTS idx_expenses_categoria_id ON expenses(categoria_id);
-
--- 6. Drop the old text column
-ALTER TABLE expenses DROP COLUMN IF EXISTS categoria;
+CREATE POLICY "service role full access"
+    ON transactions
+    USING (true)
+    WITH CHECK (true);
