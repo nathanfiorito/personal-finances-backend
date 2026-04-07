@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from typing import Any
 
 from openai import AsyncOpenAI, APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
@@ -41,17 +42,20 @@ async def chat_completion(
 
     for attempt in range(1, max_retries + 1):
         try:
+            t = time.perf_counter()
             response = await client.chat.completions.create(
                 model=model,
                 messages=messages,
                 **kwargs,
             )
+            elapsed_ms = (time.perf_counter() - t) * 1000
             content = response.choices[0].message.content or ""
             logger.info(
-                "LLM call: model=%s tokens_in=%s tokens_out=%s",
+                "LLM %-45s tokens_in=%-5s tokens_out=%-5s %.0fms",
                 model,
                 response.usage.prompt_tokens if response.usage else "?",
                 response.usage.completion_tokens if response.usage else "?",
+                elapsed_ms,
             )
             return content
 

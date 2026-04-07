@@ -1,6 +1,7 @@
 import ipaddress
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, status
@@ -71,6 +72,22 @@ app.add_middleware(
     allow_headers=["*"],
     allow_credentials=False,
 )
+
+
+@app.middleware("http")
+async def log_request_timing(request: Request, call_next):
+    """Log every request with method, path, status code and total processing time."""
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "→ %s %s %d (%.0fms)",
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed_ms,
+    )
+    return response
 
 
 app.include_router(expenses.router)

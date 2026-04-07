@@ -1,4 +1,6 @@
+import contextlib
 import logging
+import time
 from datetime import date
 from decimal import Decimal
 
@@ -19,8 +21,19 @@ async def _get_client() -> AsyncClient:
     return _client
 
 
+@contextlib.asynccontextmanager
+async def _timed_db(operation: str):
+    """Context manager that logs the duration of a Supabase query."""
+    t = time.perf_counter()
+    try:
+        yield
+    finally:
+        logger.info("DB %-45s %.0fms", operation, (time.perf_counter() - t) * 1000)
+
+
 async def _get_category_id(client: AsyncClient, nome: str) -> int | None:
-    response = await client.table("categories").select("id").eq("nome", nome).limit(1).execute()
+    async with _timed_db("categories.select(id).eq(nome)"):
+        response = await client.table("categories").select("id").eq("nome", nome).limit(1).execute()
     if response.data:
         return response.data[0]["id"]
     return None
@@ -48,49 +61,54 @@ async def save_expense(expense: ExtractedExpense, categoria: str) -> str:
         "confianca": expense.confianca,
         "dados_raw": expense.dados_raw,
     }
-    response = await client.table("expenses").insert(record).execute()
+    async with _timed_db("expenses.insert"):
+        response = await client.table("expenses").insert(record).execute()
     return response.data[0]["id"]
 
 
 async def get_recent_expenses(limit: int = 3) -> list[Expense]:
     client = await _get_client()
-    response = (
-        await client.table("expenses")
-        .select("*, categories(nome)")
-        .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
-    )
+    async with _timed_db(f"expenses.select(*).order(created_at).limit({limit})"):
+        response = (
+            await client.table("expenses")
+            .select("*, categories(nome)")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
     return [_parse_expense_row(row) for row in response.data]
 
 
 async def get_expenses_by_period(start: date, end: date) -> list[Expense]:
     client = await _get_client()
-    response = (
-        await client.table("expenses")
-        .select("*, categories(nome)")
-        .gte("data", start.isoformat())
-        .lte("data", end.isoformat())
-        .order("data")
-        .execute()
-    )
+    async with _timed_db(f"expenses.select(*).period({start},{end})"):
+        response = (
+            await client.table("expenses")
+            .select("*, categories(nome)")
+            .gte("data", start.isoformat())
+            .lte("data", end.isoformat())
+            .order("data")
+            .execute()
+        )
     return [_parse_expense_row(row) for row in response.data]
 
 
 async def add_category(nome: str) -> None:
     client = await _get_client()
-    await client.table("categories").insert({"nome": nome}).execute()
+    async with _timed_db("categories.insert"):
+        await client.table("categories").insert({"nome": nome}).execute()
 
 
 async def get_active_categories() -> list[str]:
     client = await _get_client()
-    response = (
-        await client.table("categories")
-        .select("nome")
-        .eq("ativo", True)
-        .order("nome")
-        .execute()
-    )
+    async with _timed_db("categories.select(nome).eq(ativo=True)"):
+        response = (
+            await client.table("categories")
+            .select("nome")
+            .eq("ativo", True)
+            .order("nome")
+            .execute()
+        )
     return [row["nome"] for row in response.data]
 
 
@@ -119,20 +137,22 @@ async def get_expenses_paginated(
         query = query.eq("categoria_id", categoria_id)
     offset = (page - 1) * page_size
     query = query.order("data", desc=True).range(offset, offset + page_size - 1)
-    response = await query.execute()
+    async with _timed_db(f"expenses.select(*).paginated(page={page},size={page_size})"):
+        response = await query.execute()
     total = response.count or 0
     return [_parse_expense_row(row) for row in response.data], total
 
 
 async def get_expense_by_id(expense_id: str) -> Expense | None:
     client = await _get_client()
-    response = (
-        await client.table("expenses")
-        .select("*, categories(nome)")
-        .eq("id", expense_id)
-        .limit(1)
-        .execute()
-    )
+    async with _timed_db(f"expenses.select(*).eq(id={expense_id[:8]}…)"):
+        response = (
+            await client.table("expenses")
+            .select("*, categories(nome)")
+            .eq("id", expense_id)
+            .limit(1)
+            .execute()
+        )
     if not response.data:
         return None
     return _parse_expense_row(response.data[0])
@@ -140,24 +160,26 @@ async def get_expense_by_id(expense_id: str) -> Expense | None:
 
 async def create_expense_direct(record: dict) -> Expense:
     client = await _get_client()
-    response = (
-        await client.table("expenses")
-        .insert(record)
-        .select("*, categories(nome)")
-        .execute()
-    )
+    async with _timed_db("expenses.insert.select(*)"):
+        response = (
+            await client.table("expenses")
+            .insert(record)
+            .select("*, categories(nome)")
+            .execute()
+        )
     return _parse_expense_row(response.data[0])
 
 
 async def update_expense(expense_id: str, data: dict) -> Expense | None:
     client = await _get_client()
-    response = (
-        await client.table("expenses")
-        .update(data)
-        .eq("id", expense_id)
-        .select("*, categories(nome)")
-        .execute()
-    )
+    async with _timed_db(f"expenses.update.eq(id={expense_id[:8]}…)"):
+        response = (
+            await client.table("expenses")
+            .update(data)
+            .eq("id", expense_id)
+            .select("*, categories(nome)")
+            .execute()
+        )
     if not response.data:
         return None
     return _parse_expense_row(response.data[0])
@@ -165,48 +187,52 @@ async def update_expense(expense_id: str, data: dict) -> Expense | None:
 
 async def delete_expense(expense_id: str) -> bool:
     client = await _get_client()
-    response = (
-        await client.table("expenses")
-        .delete()
-        .eq("id", expense_id)
-        .select("id")
-        .execute()
-    )
+    async with _timed_db(f"expenses.delete.eq(id={expense_id[:8]}…)"):
+        response = (
+            await client.table("expenses")
+            .delete()
+            .eq("id", expense_id)
+            .select("id")
+            .execute()
+        )
     return bool(response.data)
 
 
 async def get_all_categories() -> list[dict]:
     client = await _get_client()
-    response = (
-        await client.table("categories")
-        .select("id, nome, ativo")
-        .eq("ativo", True)
-        .order("nome")
-        .execute()
-    )
+    async with _timed_db("categories.select(id,nome,ativo).eq(ativo=True)"):
+        response = (
+            await client.table("categories")
+            .select("id, nome, ativo")
+            .eq("ativo", True)
+            .order("nome")
+            .execute()
+        )
     return response.data
 
 
 async def create_category_full(nome: str) -> dict:
     client = await _get_client()
-    response = (
-        await client.table("categories")
-        .insert({"nome": nome})
-        .select("id, nome, ativo")
-        .execute()
-    )
+    async with _timed_db("categories.insert.select(*)"):
+        response = (
+            await client.table("categories")
+            .insert({"nome": nome})
+            .select("id, nome, ativo")
+            .execute()
+        )
     return response.data[0]
 
 
 async def update_category(category_id: int, data: dict) -> dict | None:
     client = await _get_client()
-    response = (
-        await client.table("categories")
-        .update(data)
-        .eq("id", category_id)
-        .select("id, nome, ativo")
-        .execute()
-    )
+    async with _timed_db(f"categories.update.eq(id={category_id})"):
+        response = (
+            await client.table("categories")
+            .update(data)
+            .eq("id", category_id)
+            .select("id, nome, ativo")
+            .execute()
+        )
     if not response.data:
         return None
     return response.data[0]
@@ -214,13 +240,14 @@ async def update_category(category_id: int, data: dict) -> dict | None:
 
 async def deactivate_category(category_id: int) -> bool:
     client = await _get_client()
-    response = (
-        await client.table("categories")
-        .update({"ativo": False})
-        .eq("id", category_id)
-        .select("id")
-        .execute()
-    )
+    async with _timed_db(f"categories.update(ativo=False).eq(id={category_id})"):
+        response = (
+            await client.table("categories")
+            .update({"ativo": False})
+            .eq("id", category_id)
+            .select("id")
+            .execute()
+        )
     return bool(response.data)
 
 
