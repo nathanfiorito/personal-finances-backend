@@ -1,5 +1,6 @@
 import ipaddress
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, status
@@ -17,6 +18,19 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# ── HyperDX Observability ────────────────────────────────────────────────────
+# Configure OpenTelemetry before the app is created so all auto-instrumentation
+# (httpx, fastapi, supabase) is set up before the first request.
+if settings.hyperdx_api_key:
+    os.environ.setdefault("HYPERDX_API_KEY", settings.hyperdx_api_key)
+    os.environ.setdefault("OTEL_SERVICE_NAME", settings.otel_service_name)
+    try:
+        from hyperdx.opentelemetry import configure_opentelemetry
+        configure_opentelemetry()
+        logger.info("HyperDX observability enabled (service=%s)", settings.otel_service_name)
+    except ImportError:
+        logger.warning("hyperdx-opentelemetry not installed — run: pip install hyperdx-opentelemetry && opentelemetry-bootstrap -a install")
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 

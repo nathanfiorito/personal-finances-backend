@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_service_key: str = ""
 
+    # Observability (optional)
+    hyperdx_api_key: str = ""
+    otel_service_name: str = "finbot"
+
 
 
 settings = Settings()

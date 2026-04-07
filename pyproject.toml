@@ -7,6 +7,9 @@ requires-python = ">=3.12"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "performance: end-to-end response time tests against a running server (requires PERF_TEST_TOKEN)",
+]
 
 [tool.ruff]
 line-length = 100

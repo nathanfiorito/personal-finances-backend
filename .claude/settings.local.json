@@ -4,7 +4,8 @@
       "Bash(python -m venv .venv)",
       "Bash(.venv/Scripts/pip install:*)",
       "Read(//usr/**)",
-      "Read(//usr/local/**)"
+      "Read(//usr/local/**)",
+      "Bash(ls:*)"
     ]
   },
   "hooks": {
@@ -15,8 +16,8 @@
           {
             "type": "agent",
             "prompt": "You are a documentation maintenance agent for a Python/FastAPI Telegram bot project (FinBot). A file was just modified — check $ARGUMENTS for the tool input.\n\n## Your task\n\n1. Parse the `file_path` from `$ARGUMENTS` (field: `tool_input.file_path`).\n2. **Stop immediately (do nothing) if the file is NOT under `src/`** — this includes edits to `docs/`, `CLAUDE.md`, `README.md`, `tests/`, config files, etc. This avoids infinite loops.\n3. If the file IS under `src/`, read it to understand what changed.\n4. Determine which documentation files are now inaccurate. The docs to maintain are:\n   - `CLAUDE.md` — stack, request flow, commands, schema\n   - `README.md` — project structure, commands table\n   - `docs/ARCHITECTURE.md` — components, flows, schema, ADRs\n   - `docs/ARCHITECTURE-DIAGRAM.md` — Mermaid diagrams\n   - `docs/API.md` — endpoints, models, DB operations, agents summary\n   - `docs/MVP-ROADMAP.md` — feature status\n   - `docs/SECURITY-CHECKLIST.md` — security controls\n   - `docs/INFRA-COSTS.md` — cost estimates\n5. Read only the docs that are likely affected by this specific change.\n6. Apply **minimal, targeted edits** — fix only what is actually wrong or missing. Do not rewrite entire sections.\n7. If nothing in the docs needs to change, do nothing.\n\n## Rules\n- Never edit files outside `docs/`, `CLAUDE.md`, `README.md`\n- Never run tests or bash commands\n- Keep edits concise — one section at a time",
-            "statusMessage": "Verificando documentação...",
-            "timeout": 120
+            "timeout": 120,
+            "statusMessage": "Verificando documentação..."
           }
         ]
       }
