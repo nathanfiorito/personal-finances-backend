@@ -42,8 +42,7 @@ async def _get_category_id(client: AsyncClient, nome: str) -> int | None:
 def _parse_expense_row(row: dict) -> Expense:
     row = dict(row)
     categories_data = row.pop("categories", None)
-    if categories_data:
-        row["categoria"] = categories_data["nome"]
+    row["categoria"] = categories_data["nome"] if categories_data else ""
     return Expense(**row)
 
 

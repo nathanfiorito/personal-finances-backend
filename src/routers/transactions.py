@@ -47,6 +47,7 @@ class TransactionUpdate(BaseModel):
     descricao: str | None = None
     categoria_id: int | None = None
     cnpj: str | None = None
+    tipo_entrada: str | None = None
     transaction_type: Literal["income", "outcome"] | None = None
 
     @field_validator("valor")
