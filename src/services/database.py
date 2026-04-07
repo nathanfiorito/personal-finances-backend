@@ -58,19 +58,20 @@ async def save_expense(expense: ExtractedExpense, categoria: str) -> str:
         "categoria_id": categoria_id,
         "cnpj": expense.cnpj,
         "tipo_entrada": expense.tipo_entrada,
+        "transaction_type": expense.transaction_type,
         "confianca": expense.confianca,
         "dados_raw": expense.dados_raw,
     }
-    async with _timed_db("expenses.insert"):
-        response = await client.table("expenses").insert(record).execute()
+    async with _timed_db("transactions.insert"):
+        response = await client.table("transactions").insert(record).execute()
     return response.data[0]["id"]
 
 
 async def get_recent_expenses(limit: int = 3) -> list[Expense]:
     client = await _get_client()
-    async with _timed_db(f"expenses.select(*).order(created_at).limit({limit})"):
+    async with _timed_db(f"transactions.select(*).order(created_at).limit({limit})"):
         response = (
-            await client.table("expenses")
+            await client.table("transactions")
             .select("*, categories(nome)")
             .order("created_at", desc=True)
             .limit(limit)
@@ -79,17 +80,22 @@ async def get_recent_expenses(limit: int = 3) -> list[Expense]:
     return [_parse_expense_row(row) for row in response.data]
 
 
-async def get_expenses_by_period(start: date, end: date) -> list[Expense]:
+async def get_expenses_by_period(
+    start: date,
+    end: date,
+    transaction_type: str | None = None,
+) -> list[Expense]:
     client = await _get_client()
-    async with _timed_db(f"expenses.select(*).period({start},{end})"):
-        response = (
-            await client.table("expenses")
+    async with _timed_db(f"transactions.select(*).period({start},{end})"):
+        query = (
+            client.table("transactions")
             .select("*, categories(nome)")
             .gte("data", start.isoformat())
             .lte("data", end.isoformat())
-            .order("data")
-            .execute()
         )
+        if transaction_type is not None:
+            query = query.eq("transaction_type", transaction_type)
+        response = await query.order("data").execute()
     return [_parse_expense_row(row) for row in response.data]
 
 
@@ -112,8 +118,12 @@ async def get_active_categories() -> list[str]:
     return [row["nome"] for row in response.data]
 
 
-async def get_totals_by_category(start: date, end: date) -> dict[str, Decimal]:
-    expenses = await get_expenses_by_period(start, end)
+async def get_totals_by_category(
+    start: date,
+    end: date,
+    transaction_type: str | None = None,
+) -> dict[str, Decimal]:
+    expenses = await get_expenses_by_period(start, end, transaction_type)
     totals: dict[str, Decimal] = {}
     for expense in expenses:
         totals[expense.categoria] = totals.get(expense.categoria, Decimal("0")) + expense.valor
@@ -126,18 +136,21 @@ async def get_expenses_paginated(
     categoria_id: int | None,
     page: int,
     page_size: int,
+    transaction_type: str | None = None,
 ) -> tuple[list[Expense], int]:
     client = await _get_client()
-    query = client.table("expenses").select("*, categories(nome)", count="exact")
+    query = client.table("transactions").select("*, categories(nome)", count="exact")
     if start:
         query = query.gte("data", start.isoformat())
     if end:
         query = query.lte("data", end.isoformat())
     if categoria_id is not None:
         query = query.eq("categoria_id", categoria_id)
+    if transaction_type is not None:
+        query = query.eq("transaction_type", transaction_type)
     offset = (page - 1) * page_size
     query = query.order("data", desc=True).range(offset, offset + page_size - 1)
-    async with _timed_db(f"expenses.select(*).paginated(page={page},size={page_size})"):
+    async with _timed_db(f"transactions.select(*).paginated(page={page},size={page_size})"):
         response = await query.execute()
     total = response.count or 0
     return [_parse_expense_row(row) for row in response.data], total
@@ -145,9 +158,9 @@ async def get_expenses_paginated(
 
 async def get_expense_by_id(expense_id: str) -> Expense | None:
     client = await _get_client()
-    async with _timed_db(f"expenses.select(*).eq(id={expense_id[:8]}…)"):
+    async with _timed_db(f"transactions.select(*).eq(id={expense_id[:8]}…)"):
         response = (
-            await client.table("expenses")
+            await client.table("transactions")
             .select("*, categories(nome)")
             .eq("id", expense_id)
             .limit(1)
@@ -160,9 +173,9 @@ async def get_expense_by_id(expense_id: str) -> Expense | None:
 
 async def create_expense_direct(record: dict) -> Expense:
     client = await _get_client()
-    async with _timed_db("expenses.insert.select(*)"):
+    async with _timed_db("transactions.insert.select(*)"):
         response = (
-            await client.table("expenses")
+            await client.table("transactions")
             .insert(record)
             .select("*, categories(nome)")
             .execute()
@@ -172,9 +185,9 @@ async def create_expense_direct(record: dict) -> Expense:
 
 async def update_expense(expense_id: str, data: dict) -> Expense | None:
     client = await _get_client()
-    async with _timed_db(f"expenses.update.eq(id={expense_id[:8]}…)"):
+    async with _timed_db(f"transactions.update.eq(id={expense_id[:8]}…)"):
         response = (
-            await client.table("expenses")
+            await client.table("transactions")
             .update(data)
             .eq("id", expense_id)
             .select("*, categories(nome)")
@@ -187,9 +200,9 @@ async def update_expense(expense_id: str, data: dict) -> Expense | None:
 
 async def delete_expense(expense_id: str) -> bool:
     client = await _get_client()
-    async with _timed_db(f"expenses.delete.eq(id={expense_id[:8]}…)"):
+    async with _timed_db(f"transactions.delete.eq(id={expense_id[:8]}…)"):
         response = (
-            await client.table("expenses")
+            await client.table("transactions")
             .delete()
             .eq("id", expense_id)
             .select("id")
@@ -251,5 +264,8 @@ async def deactivate_category(category_id: int) -> bool:
     return bool(response.data)
 
 
-async def get_expenses_by_year(year: int) -> list[Expense]:
-    return await get_expenses_by_period(date(year, 1, 1), date(year, 12, 31))
+async def get_expenses_by_year(
+    year: int,
+    transaction_type: str | None = None,
+) -> list[Expense]:
+    return await get_expenses_by_period(date(year, 1, 1), date(year, 12, 31), transaction_type)

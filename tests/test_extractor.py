@@ -210,6 +210,98 @@ class TestExtractFromPdf:
         assert result is None
 
 
+class TestBuildExpenseTransactionType:
+    """Tests for transaction_type detection in _build_expense."""
+
+    def _base(self, **overrides) -> dict:
+        data = {
+            "valor": 50.0,
+            "data": "2024-03-10",
+            "estabelecimento": "Loja X",
+            "descricao": None,
+            "cnpj": None,
+            "confianca": 0.9,
+        }
+        data.update(overrides)
+        return data
+
+    def test_outcome_is_preserved(self):
+        # Arrange + Act
+        expense = _build_expense(self._base(transaction_type="outcome"), "texto")
+        # Assert
+        assert expense.transaction_type == "outcome"
+
+    def test_income_is_preserved(self):
+        # Arrange + Act
+        expense = _build_expense(self._base(transaction_type="income"), "texto")
+        # Assert
+        assert expense.transaction_type == "income"
+
+    def test_missing_transaction_type_defaults_to_outcome(self):
+        # Arrange: LLM did not return the field
+        expense = _build_expense(self._base(), "texto")
+        # Assert
+        assert expense.transaction_type == "outcome"
+
+    def test_invalid_transaction_type_defaults_to_outcome(self):
+        # Arrange: LLM returned an unexpected value
+        expense = _build_expense(self._base(transaction_type="expense"), "texto")
+        # Assert
+        assert expense.transaction_type == "outcome"
+
+    def test_none_transaction_type_defaults_to_outcome(self):
+        # Arrange: LLM returned null
+        expense = _build_expense(self._base(transaction_type=None), "texto")
+        # Assert
+        assert expense.transaction_type == "outcome"
+
+
+class TestExtractFromTextTransactionType:
+    """End-to-end transaction_type extraction via extract_from_text."""
+
+    @pytest.mark.asyncio
+    async def test_income_message_returns_income_type(self):
+        # Arrange: LLM identifies the message as income
+        mock_response = (
+            '{"valor": 3000.0, "data": "2025-03-05", "estabelecimento": null, '
+            '"descricao": "Salário", "cnpj": null, "transaction_type": "income", "confianca": 0.95}'
+        )
+        with patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock) as mock_llm:
+            mock_llm.return_value = mock_response
+            # Act
+            expense = await extract_from_text("recebi 3000 de salário")
+        # Assert
+        assert expense.transaction_type == "income"
+
+    @pytest.mark.asyncio
+    async def test_outcome_message_returns_outcome_type(self):
+        # Arrange: LLM identifies the message as outcome
+        mock_response = (
+            '{"valor": 50.0, "data": "2025-03-10", "estabelecimento": "Mercado", '
+            '"descricao": null, "cnpj": null, "transaction_type": "outcome", "confianca": 0.9}'
+        )
+        with patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock) as mock_llm:
+            mock_llm.return_value = mock_response
+            # Act
+            expense = await extract_from_text("gastei 50 no mercado")
+        # Assert
+        assert expense.transaction_type == "outcome"
+
+    @pytest.mark.asyncio
+    async def test_ambiguous_message_defaults_to_outcome(self):
+        # Arrange: LLM does not include transaction_type
+        mock_response = (
+            '{"valor": 100.0, "data": null, "estabelecimento": null, '
+            '"descricao": "transação", "cnpj": null, "confianca": 0.5}'
+        )
+        with patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock) as mock_llm:
+            mock_llm.return_value = mock_response
+            # Act
+            expense = await extract_from_text("100 reais")
+        # Assert
+        assert expense.transaction_type == "outcome"
+
+
 class TestExpenseModel:
     def test_valor_negativo_raises(self):
         from pydantic import ValidationError
@@ -222,3 +314,22 @@ class TestExpenseModel:
         with pytest.raises(ValidationError):
             from src.models.expense import ExtractedExpense
             ExtractedExpense(valor=Decimal("1000000"), data=date.today(), tipo_entrada="texto")
+
+    def test_transaction_type_defaults_to_outcome(self):
+        # Arrange + Act
+        from src.models.expense import ExtractedExpense
+        expense = ExtractedExpense(valor=Decimal("50"), data=date.today(), tipo_entrada="texto")
+        # Assert
+        assert expense.transaction_type == "outcome"
+
+    def test_transaction_type_income_accepted(self):
+        # Arrange + Act
+        from src.models.expense import ExtractedExpense
+        expense = ExtractedExpense(
+            valor=Decimal("1000"),
+            data=date.today(),
+            tipo_entrada="texto",
+            transaction_type="income",
+        )
+        # Assert
+        assert expense.transaction_type == "income"

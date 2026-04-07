@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from src.main import app, _extract_chat_id, _is_telegram_ip
+from src.main import app, _extract_chat_id
 
 client = TestClient(app)
 
@@ -107,48 +107,14 @@ class TestSecurity:
         _post_webhook(_text_update(ALLOWED_CHAT_ID, "oi"))
         mock_handle.assert_called_once()
 
-    def test_non_telegram_ip_returns_403(self, mocker):
+    def test_any_ip_accepted_with_valid_secret(self, mocker):
+        # IP validation was removed — only the secret token is checked
         mocker.patch("src.main.handle_update")
         response = _post_webhook(
             _text_update(ALLOWED_CHAT_ID, "oi"),
             client_ip="1.2.3.4",
         )
-        assert response.status_code == 403
-
-    def test_telegram_ip_range_1_accepted(self, mocker):
-        mocker.patch("src.main.handle_update")
-        response = _post_webhook(
-            _text_update(ALLOWED_CHAT_ID, "oi"),
-            client_ip="149.154.175.255",
-        )
         assert response.status_code == 200
-
-    def test_telegram_ip_range_2_accepted(self, mocker):
-        mocker.patch("src.main.handle_update")
-        response = _post_webhook(
-            _text_update(ALLOWED_CHAT_ID, "oi"),
-            client_ip="91.108.4.1",
-        )
-        assert response.status_code == 200
-
-
-# --- IP Validation ---
-
-class TestTelegramIP:
-    def test_telegram_ip_in_range_1(self):
-        assert _is_telegram_ip("149.154.167.220") is True
-
-    def test_telegram_ip_in_range_2(self):
-        assert _is_telegram_ip("91.108.5.100") is True
-
-    def test_non_telegram_ip(self):
-        assert _is_telegram_ip("8.8.8.8") is False
-
-    def test_localhost_not_telegram(self):
-        assert _is_telegram_ip("127.0.0.1") is False
-
-    def test_invalid_ip_returns_false(self):
-        assert _is_telegram_ip("not-an-ip") is False
 
 
 # --- CORS ---

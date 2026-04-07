@@ -19,9 +19,11 @@ def _format_extracted(expense: ExtractedExpense, categoria: str) -> str:
     data_fmt = expense.data.strftime("%d/%m/%Y")
     valor_fmt = f"R$ {expense.valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     confianca_pct = int(expense.confianca * 100)
+    tipo_label = "Receita" if expense.transaction_type == "income" else "Despesa"
+    tipo_emoji = "📈" if expense.transaction_type == "income" else "📉"
 
     lines = [
-        "📋 <b>Despesa detectada:</b>",
+        f"{tipo_emoji} <b>{tipo_label} detectada:</b>",
         f"💰 Valor: <b>{valor_fmt}</b>",
         f"📅 Data: {data_fmt}",
     ]

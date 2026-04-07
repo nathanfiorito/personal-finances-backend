@@ -13,6 +13,7 @@ class ExtractedExpense(BaseModel):
     descricao: str | None = None
     cnpj: str | None = None
     tipo_entrada: Literal["imagem", "texto", "pdf"]
+    transaction_type: Literal["income", "outcome"] = "outcome"
     confianca: float = Field(ge=0.0, le=1.0, default=0.5)
     dados_raw: dict = Field(default_factory=dict)
 
@@ -46,5 +47,6 @@ class Expense(BaseModel):
     categoria_id: int | None = None
     cnpj: str | None
     tipo_entrada: str
+    transaction_type: Literal["income", "outcome"] = "outcome"
     confianca: float | None
     created_at: datetime

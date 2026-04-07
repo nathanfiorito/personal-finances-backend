@@ -20,6 +20,7 @@ Retorne APENAS o JSON, sem texto adicional, sem markdown, sem explicações.
   "estabelecimento": "<nome do estabelecimento ou null>",
   "descricao": "<descrição resumida do pagamento ou null>",
   "cnpj": "<CNPJ do estabelecimento ou null>",
+  "transaction_type": "<\"income\" se for dinheiro entrando (recebimento, reembolso, salário, transferência recebida) ou \"outcome\" se for dinheiro saindo (compra, pagamento, conta). Na dúvida, use \"outcome\">",
   "confianca": <número entre 0.0 e 1.0 indicando sua confiança na extração>
 }
 
@@ -30,14 +31,15 @@ Regras:
 - Se um campo não for legível ou não existir, use null.
 - confianca deve refletir a qualidade GERAL da extração (1.0 = todos os campos claramente legíveis)."""
 
-_PROMPT_TEXT = """Extraia as informações de despesa da mensagem abaixo e retorne APENAS um JSON, sem texto adicional.
+_PROMPT_TEXT = """Extraia as informações financeiras da mensagem abaixo e retorne APENAS um JSON, sem texto adicional.
 
 {{
   "valor": <número decimal positivo, ex: 45.90>,
   "data": "<data em ISO 8601 ou null se não mencionada>",
   "estabelecimento": "<nome do local/estabelecimento ou null>",
-  "descricao": "<descrição do que foi comprado/pago ou null>",
+  "descricao": "<descrição do que foi comprado/pago/recebido ou null>",
   "cnpj": null,
+  "transaction_type": "<\"income\" se for dinheiro entrando (recebi, salário, reembolso, transferência recebida, venda) ou \"outcome\" se for dinheiro saindo (comprei, paguei, gastei, conta). Na dúvida, use \"outcome\">",
   "confianca": <0.0 a 1.0>
 }}
 
@@ -95,6 +97,9 @@ def _build_expense(data: dict, tipo: str) -> ExtractedExpense:
         except (ValueError, TypeError):
             logger.warning("Data inválida retornada pelo LLM: %r — usando None", raw_data)
 
+    raw_type = data.get("transaction_type", "outcome")
+    transaction_type = raw_type if raw_type in ("income", "outcome") else "outcome"
+
     return ExtractedExpense(
         valor=valor,
         data=parsed_date or date.today(),
@@ -102,6 +107,7 @@ def _build_expense(data: dict, tipo: str) -> ExtractedExpense:
         descricao=data.get("descricao") or None,
         cnpj=data.get("cnpj") or None,
         tipo_entrada=tipo,
+        transaction_type=transaction_type,
         confianca=float(data.get("confianca", 0.5)),
         dados_raw=data,
     )

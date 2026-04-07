@@ -38,6 +38,7 @@ MOCK_EXPENSE = Expense(
     categoria_id=1,
     cnpj=None,
     tipo_entrada="texto",
+    transaction_type="outcome",
     confianca=1.0,
     created_at=datetime(2025, 1, 15, 12, 0, 0),
 )
@@ -96,7 +97,7 @@ class TestAuth:
     def test_missing_jwt_returns_401(self):
         # Arrange: no Authorization header
         # Act
-        response = client.get("/api/expenses")
+        response = client.get("/api/transactions")
         # Assert
         assert response.status_code == 401
 
@@ -104,7 +105,7 @@ class TestAuth:
         # Arrange
         self._mock_supabase_auth(mocker, side_effect=Exception("invalid"))
         # Act
-        response = client.get("/api/expenses", headers={"Authorization": "Token abc123"})
+        response = client.get("/api/transactions", headers={"Authorization": "Token abc123"})
         # Assert
         assert response.status_code == 401
 
@@ -113,7 +114,7 @@ class TestAuth:
         self._mock_supabase_auth(mocker, side_effect=Exception("invalid jwt"))
         # Act
         response = client.get(
-            "/api/expenses",
+            "/api/transactions",
             headers={"Authorization": "Bearer bad-token-not-expired"},
         )
         # Assert
@@ -124,7 +125,7 @@ class TestAuth:
         self._mock_supabase_auth(mocker, side_effect=Exception("expired"))
         # Act
         response = client.get(
-            "/api/expenses",
+            "/api/transactions",
             headers={"Authorization": f"Bearer {EXPIRED_TOKEN}"},
         )
         # Assert
@@ -142,13 +143,13 @@ class TestAuth:
             return_value=mock_client,
         )
         mocker.patch(
-            "src.routers.expenses.database.get_expenses_paginated",
+            "src.routers.transactions.database.get_expenses_paginated",
             new_callable=AsyncMock,
             return_value=([], 0),
         )
         # Act
         response = client.get(
-            "/api/expenses",
+            "/api/transactions",
             headers={"Authorization": f"Bearer {FRESH_TOKEN}"},
         )
         # Assert
@@ -163,12 +164,12 @@ class TestExpenses:
     def test_list_expenses_no_filters_returns_paginated(self, mocker):
         # Arrange
         mocker.patch(
-            "src.routers.expenses.database.get_expenses_paginated",
+            "src.routers.transactions.database.get_expenses_paginated",
             new_callable=AsyncMock,
             return_value=([MOCK_EXPENSE], 1),
         )
         # Act
-        response = client.get("/api/expenses", headers=AUTH_HEADER)
+        response = client.get("/api/transactions", headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 200
         body = response.json()
@@ -180,13 +181,13 @@ class TestExpenses:
     def test_list_expenses_filters_by_period(self, mocker):
         # Arrange
         mock_db = mocker.patch(
-            "src.routers.expenses.database.get_expenses_paginated",
+            "src.routers.transactions.database.get_expenses_paginated",
             new_callable=AsyncMock,
             return_value=([MOCK_EXPENSE], 1),
         )
         # Act
         response = client.get(
-            "/api/expenses?start=2025-01-01&end=2025-01-31",
+            "/api/transactions?start=2025-01-01&end=2025-01-31",
             headers=AUTH_HEADER,
         )
         # Assert
@@ -198,12 +199,12 @@ class TestExpenses:
     def test_list_expenses_filters_by_categoria_id(self, mocker):
         # Arrange
         mock_db = mocker.patch(
-            "src.routers.expenses.database.get_expenses_paginated",
+            "src.routers.transactions.database.get_expenses_paginated",
             new_callable=AsyncMock,
             return_value=([MOCK_EXPENSE], 1),
         )
         # Act
-        response = client.get("/api/expenses?categoria_id=1", headers=AUTH_HEADER)
+        response = client.get("/api/transactions?categoria_id=1", headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 200
         assert mock_db.call_args[0][2] == 1
@@ -211,12 +212,12 @@ class TestExpenses:
     def test_list_expenses_page_size_capped_at_100(self, mocker):
         # Arrange
         mock_db = mocker.patch(
-            "src.routers.expenses.database.get_expenses_paginated",
+            "src.routers.transactions.database.get_expenses_paginated",
             new_callable=AsyncMock,
             return_value=([], 0),
         )
         # Act
-        response = client.get("/api/expenses?page_size=999", headers=AUTH_HEADER)
+        response = client.get("/api/transactions?page_size=999", headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 200
         assert mock_db.call_args[0][4] == 100
@@ -224,7 +225,7 @@ class TestExpenses:
     def test_list_expenses_start_after_end_returns_422(self, mocker):
         # Arrange / Act
         response = client.get(
-            "/api/expenses?start=2025-02-01&end=2025-01-01",
+            "/api/transactions?start=2025-02-01&end=2025-01-01",
             headers=AUTH_HEADER,
         )
         # Assert
@@ -233,12 +234,12 @@ class TestExpenses:
     def test_get_expense_by_id_returns_expense(self, mocker):
         # Arrange
         mocker.patch(
-            "src.routers.expenses.database.get_expense_by_id",
+            "src.routers.transactions.database.get_expense_by_id",
             new_callable=AsyncMock,
             return_value=MOCK_EXPENSE,
         )
         # Act
-        response = client.get(f"/api/expenses/{EXPENSE_ID}", headers=AUTH_HEADER)
+        response = client.get(f"/api/transactions/{EXPENSE_ID}", headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 200
         assert response.json()["id"] == EXPENSE_ID
@@ -246,19 +247,19 @@ class TestExpenses:
     def test_get_expense_by_id_not_found_returns_404(self, mocker):
         # Arrange
         mocker.patch(
-            "src.routers.expenses.database.get_expense_by_id",
+            "src.routers.transactions.database.get_expense_by_id",
             new_callable=AsyncMock,
             return_value=None,
         )
         # Act
-        response = client.get(f"/api/expenses/{EXPENSE_ID}", headers=AUTH_HEADER)
+        response = client.get(f"/api/transactions/{EXPENSE_ID}", headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 404
 
     def test_create_expense_returns_201(self, mocker):
         # Arrange
         mocker.patch(
-            "src.routers.expenses.database.create_expense_direct",
+            "src.routers.transactions.database.create_expense_direct",
             new_callable=AsyncMock,
             return_value=MOCK_EXPENSE,
         )
@@ -270,7 +271,7 @@ class TestExpenses:
             "tipo_entrada": "texto",
         }
         # Act
-        response = client.post("/api/expenses", json=body, headers=AUTH_HEADER)
+        response = client.post("/api/transactions", json=body, headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 201
         assert response.json()["id"] == EXPENSE_ID
@@ -279,7 +280,7 @@ class TestExpenses:
         # Arrange
         body = {"valor": "0", "data": "2025-01-15", "categoria_id": 1, "tipo_entrada": "texto"}
         # Act
-        response = client.post("/api/expenses", json=body, headers=AUTH_HEADER)
+        response = client.post("/api/transactions", json=body, headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 422
 
@@ -287,7 +288,7 @@ class TestExpenses:
         # Arrange
         body = {"valor": "1000000", "data": "2025-01-15", "categoria_id": 1, "tipo_entrada": "texto"}
         # Act
-        response = client.post("/api/expenses", json=body, headers=AUTH_HEADER)
+        response = client.post("/api/transactions", json=body, headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 422
 
@@ -295,13 +296,13 @@ class TestExpenses:
         # Arrange
         updated = MOCK_EXPENSE.model_copy(update={"estabelecimento": "Padaria"})
         mocker.patch(
-            "src.routers.expenses.database.update_expense",
+            "src.routers.transactions.database.update_expense",
             new_callable=AsyncMock,
             return_value=updated,
         )
         # Act
         response = client.put(
-            f"/api/expenses/{EXPENSE_ID}",
+            f"/api/transactions/{EXPENSE_ID}",
             json={"estabelecimento": "Padaria"},
             headers=AUTH_HEADER,
         )
@@ -312,13 +313,13 @@ class TestExpenses:
     def test_update_expense_not_found_returns_404(self, mocker):
         # Arrange
         mocker.patch(
-            "src.routers.expenses.database.update_expense",
+            "src.routers.transactions.database.update_expense",
             new_callable=AsyncMock,
             return_value=None,
         )
         # Act
         response = client.put(
-            f"/api/expenses/{EXPENSE_ID}",
+            f"/api/transactions/{EXPENSE_ID}",
             json={"estabelecimento": "Padaria"},
             headers=AUTH_HEADER,
         )
@@ -328,24 +329,24 @@ class TestExpenses:
     def test_delete_expense_returns_204(self, mocker):
         # Arrange
         mocker.patch(
-            "src.routers.expenses.database.delete_expense",
+            "src.routers.transactions.database.delete_expense",
             new_callable=AsyncMock,
             return_value=True,
         )
         # Act
-        response = client.delete(f"/api/expenses/{EXPENSE_ID}", headers=AUTH_HEADER)
+        response = client.delete(f"/api/transactions/{EXPENSE_ID}", headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 204
 
     def test_delete_expense_not_found_returns_404(self, mocker):
         # Arrange
         mocker.patch(
-            "src.routers.expenses.database.delete_expense",
+            "src.routers.transactions.database.delete_expense",
             new_callable=AsyncMock,
             return_value=False,
         )
         # Act
-        response = client.delete(f"/api/expenses/{EXPENSE_ID}", headers=AUTH_HEADER)
+        response = client.delete(f"/api/transactions/{EXPENSE_ID}", headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 404
 
@@ -535,7 +536,7 @@ class TestReports:
         assert response.status_code == 200
         from datetime import datetime
         current_year = datetime.now().year
-        mock_db.assert_called_once_with(current_year)
+        mock_db.assert_called_once_with(current_year, None)
 
 
 # ---------------------------------------------------------------------------

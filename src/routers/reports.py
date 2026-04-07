@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -31,6 +32,7 @@ class MonthlyItem(BaseModel):
 async def get_summary(
     start: date,
     end: date,
+    transaction_type: Literal["income", "outcome"] | None = None,
     _user=Depends(get_current_user),
 ):
     if start > end:
@@ -38,7 +40,7 @@ async def get_summary(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="start deve ser menor ou igual a end",
         )
-    totals = await database.get_totals_by_category(start, end)
+    totals = await database.get_totals_by_category(start, end, transaction_type)
     return sorted(
         [SummaryItem(categoria=k, total=v) for k, v in totals.items()],
         key=lambda x: x.total,
@@ -49,12 +51,13 @@ async def get_summary(
 @router.get("/monthly", response_model=list[MonthlyItem])
 async def get_monthly(
     year: int = Query(default=None),
+    transaction_type: Literal["income", "outcome"] | None = None,
     _user=Depends(get_current_user),
 ):
     if year is None:
         year = datetime.now().year
 
-    expenses = await database.get_expenses_by_year(year)
+    expenses = await database.get_expenses_by_year(year, transaction_type)
 
     monthly: dict[int, dict[str, Decimal]] = defaultdict(lambda: defaultdict(Decimal))
     for exp in expenses:

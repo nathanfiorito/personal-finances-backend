@@ -11,7 +11,7 @@ from slowapi.util import get_remote_address
 
 from src.config.settings import settings
 from src.handlers.message import handle_update
-from src.routers import categories, expenses, export, reports
+from src.routers import categories, expenses, export, reports, transactions
 from src.services.telegram import send_message
 
 logging.basicConfig(
@@ -83,7 +83,8 @@ async def log_request_timing(request: Request, call_next):
     return response
 
 
-app.include_router(expenses.router)
+app.include_router(transactions.router)
+app.include_router(expenses.router)  # 301 compat layer — keep until frontend is fully migrated
 app.include_router(categories.router)
 app.include_router(reports.router)
 app.include_router(export.router)
