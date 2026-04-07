@@ -1,4 +1,3 @@
-import ipaddress
 import logging
 import os
 import time
@@ -13,6 +12,7 @@ from slowapi.util import get_remote_address
 from src.config.settings import settings
 from src.handlers.message import handle_update
 from src.routers import categories, expenses, export, reports
+from src.services.telegram import send_message
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,22 +34,6 @@ if settings.hyperdx_api_key:
         logger.warning("hyperdx-opentelemetry not installed — run: pip install hyperdx-opentelemetry && opentelemetry-bootstrap -a install")
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
-
-# Telegram Bot API sends webhooks from these IP ranges
-# https://core.telegram.org/bots/webhooks#the-short-version
-TELEGRAM_IP_RANGES = [
-    ipaddress.ip_network("149.154.160.0/20"),
-    ipaddress.ip_network("91.108.4.0/22"),
-]
-
-
-def _is_telegram_ip(ip_str: str) -> bool:
-    """Check if an IP address belongs to Telegram's known ranges."""
-    try:
-        addr = ipaddress.ip_address(ip_str)
-        return any(addr in net for net in TELEGRAM_IP_RANGES)
-    except ValueError:
-        return False
 
 
 @asynccontextmanager
@@ -118,22 +102,17 @@ async def webhook(request: Request) -> dict:
     if secret != settings.telegram_webhook_secret:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
-    # 2. Validate source IP is from Telegram
-    # TODO(security/F-02): IP trust depends on CF-Connecting-IP header being set by Cloudflare.
-    # If this app is ever accessed directly (bypassing Cloudflare), the header can be spoofed.
-    # Document this Cloudflare dependency or add a guard for direct-access scenarios.
-    client_ip = request.headers.get("CF-Connecting-IP") or request.client.host
-    if not _is_telegram_ip(client_ip):
-        logger.warning("Webhook chamado de IP não-Telegram: %s", client_ip)
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-
     update = await request.json()
     logger.debug("Update recebido: %s", update)
 
-    # 3. Validate chat_id is authorized (single-user bot)
+    # 2. Validate chat_id is authorized (single-user bot)
     chat_id = _extract_chat_id(update)
     if chat_id is not None and chat_id != settings.telegram_allowed_chat_id:
-        logger.warning("Update ignorado de chat_id não autorizado: %d", chat_id)
+        logger.warning("Webhook recebido de chat_id não autorizado: %d", chat_id)
+        try:
+            await send_message(chat_id, "Usuário não suportado")
+        except Exception:
+            logger.exception("Erro ao enviar mensagem de usuário não suportado para chat_id %d", chat_id)
         return {"ok": True}
 
     try:
