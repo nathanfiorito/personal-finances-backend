@@ -26,10 +26,6 @@ logger = logging.getLogger(__name__)
 # FastAPI instrumentation will be applied after app creation.
 if settings.signoz_otlp_endpoint:
     os.environ.setdefault("OTEL_SERVICE_NAME", settings.otel_service_name)
-    os.environ.setdefault("OTEL_EXPORTER_OTLP_ENDPOINT", settings.signoz_otlp_endpoint)
-    os.environ.setdefault("OTEL_TRACES_EXPORTER", "otlp")
-    os.environ.setdefault("OTEL_METRICS_EXPORTER", "otlp")
-    os.environ.setdefault("OTEL_LOGS_EXPORTER", "otlp")
     try:
         from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
         from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
@@ -38,8 +34,13 @@ if settings.signoz_otlp_endpoint:
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry._logs import set_logger_provider
+        from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+        from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+        from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 
         resource = Resource.create({"service.name": settings.otel_service_name})
+
         tracer_provider = TracerProvider(resource=resource)
         tracer_provider.add_span_processor(
             BatchSpanProcessor(
@@ -47,6 +48,15 @@ if settings.signoz_otlp_endpoint:
             )
         )
         trace.set_tracer_provider(tracer_provider)
+
+        logger_provider = LoggerProvider(resource=resource)
+        set_logger_provider(logger_provider)
+        logger_provider.add_log_record_processor(
+            BatchLogRecordProcessor(
+                OTLPLogExporter(endpoint=f"{settings.signoz_otlp_endpoint}/v1/logs")
+            )
+        )
+        logging.getLogger().addHandler(LoggingHandler(level=logging.INFO, logger_provider=logger_provider))
 
         HTTPXClientInstrumentor().instrument()
         SQLAlchemyInstrumentor().instrument()
