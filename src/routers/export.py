@@ -10,7 +10,7 @@ from src.services import database
 
 router = APIRouter(prefix="/api/export", tags=["export"])
 
-_CSV_COLUMNS = ["id", "data", "estabelecimento", "descricao", "categoria", "valor", "cnpj", "tipo_entrada", "confianca", "created_at"]
+_CSV_COLUMNS = ["id", "date", "establishment", "description", "category", "amount", "tax_id", "entry_type", "confidence", "created_at"]
 
 
 @router.get("/csv")
@@ -22,7 +22,7 @@ async def export_csv(
     if start > end:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="start deve ser menor ou igual a end",
+            detail="start must be less than or equal to end",
         )
 
     expenses = await database.get_expenses_by_period(start, end)
@@ -33,14 +33,14 @@ async def export_csv(
     for exp in expenses:
         writer.writerow([
             str(exp.id),
-            exp.data.isoformat(),
-            exp.estabelecimento or "",
-            exp.descricao or "",
-            exp.categoria,
-            str(exp.valor),
-            exp.cnpj or "",
-            exp.tipo_entrada,
-            exp.confianca if exp.confianca is not None else "",
+            exp.date.isoformat(),
+            exp.establishment or "",
+            exp.description or "",
+            exp.category,
+            str(exp.amount),
+            exp.tax_id or "",
+            exp.entry_type,
+            exp.confidence if exp.confidence is not None else "",
             exp.created_at.isoformat(),
         ])
 

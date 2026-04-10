@@ -14,26 +14,26 @@ MESSAGE_ID = 99
 
 def _expense() -> ExtractedExpense:
     return ExtractedExpense(
-        valor=Decimal("45.90"),
-        data=date(2024, 1, 15),
-        estabelecimento="Supermercado Extra",
-        descricao="Compras",
-        tipo_entrada="texto",
-        confianca=0.9,
+        amount=Decimal("45.90"),
+        date=date(2024, 1, 15),
+        establishment="Supermercado Extra",
+        description="Compras",
+        entry_type="texto",
+        confidence=0.9,
     )
 
 
 def _saved_expense() -> Expense:
     return Expense(
         id="550e8400-e29b-41d4-a716-446655440000",
-        valor=Decimal("45.90"),
-        data=date(2024, 1, 14),
-        estabelecimento="Supermercado Extra",
-        descricao="Compras",
-        categoria="Alimentação",
-        cnpj=None,
-        tipo_entrada="texto",
-        confianca=0.9,
+        amount=Decimal("45.90"),
+        date=date(2024, 1, 14),
+        establishment="Supermercado Extra",
+        description="Compras",
+        category="Alimentação",
+        tax_id=None,
+        entry_type="texto",
+        confidence=0.9,
         created_at=datetime(2024, 1, 14, 10, 0, 0),
     )
 
@@ -268,7 +268,7 @@ class TestEditCategory:
         await handle_callback(_callback("set_category:Transporte"))
 
         updated = pending_store.get(CHAT_ID)
-        assert updated.categoria == "Transporte"
+        assert updated.category == "Transporte"
 
     @pytest.mark.asyncio
     async def test_set_category_reshow_confirmation(self, with_pending, mocker):
@@ -293,12 +293,12 @@ class TestPendingStore:
         assert pending_store.get(CHAT_ID) is None
         assert CHAT_ID not in pending_store._store
 
-    def test_update_categoria(self):
+    def test_update_category(self):
         pending_store.save(CHAT_ID, _expense(), "Alimentação", MESSAGE_ID)
-        result = pending_store.update_categoria(CHAT_ID, "Saúde")
+        result = pending_store.update_category(CHAT_ID, "Saúde")
         assert result is True
-        assert pending_store.get(CHAT_ID).categoria == "Saúde"
+        assert pending_store.get(CHAT_ID).category == "Saúde"
 
-    def test_update_categoria_missing_returns_false(self):
-        result = pending_store.update_categoria(CHAT_ID, "Saúde")
+    def test_update_category_missing_returns_false(self):
+        result = pending_store.update_category(CHAT_ID, "Saúde")
         assert result is False

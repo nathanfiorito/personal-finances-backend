@@ -20,23 +20,23 @@ CATEGORIES = [
     "Outros",
 ]
 
-_PROMPT = """Classifique a despesa abaixo em UMA das categorias: {categories}
+_PROMPT = """Classify the expense below into ONE of the categories: {categories}
 
-Estabelecimento: {estabelecimento}
-Descrição: {descricao}
+Establishment: {establishment}
+Description: {description}
 
-Exemplos:
-- Supermercado, Mercado, iFood, Rappi, McDonald's, restaurante, padaria → Alimentação
-- Uber, Shell, Posto, estacionamento, pedágio, ônibus, metrô → Transporte
-- Aluguel, condomínio, energia, água, gás, internet → Moradia
-- Farmácia, Drogasil, hospital, clínica, plano de saúde → Saúde
-- Curso, livro, Udemy, escola → Educação
-- Cinema, Netflix, Spotify, viagem, show → Lazer
-- Loja de roupas, calçados, acessórios → Vestuário
-- Banco, cartório, seguro, manutenção → Serviços
-- Pet shop, veterinário, ração → Pets
+Examples:
+- Supermarket, Market, iFood, Rappi, McDonald's, restaurant, bakery → Alimentação
+- Uber, Shell, Gas station, parking, toll, bus, subway → Transporte
+- Rent, condo, electricity, water, gas, internet → Moradia
+- Pharmacy, hospital, clinic, health insurance → Saúde
+- Course, book, Udemy, school → Educação
+- Cinema, Netflix, Spotify, travel, show → Lazer
+- Clothing store, shoes, accessories → Vestuário
+- Bank, notary, insurance, maintenance → Serviços
+- Pet shop, veterinarian, pet food → Pets
 
-Responda APENAS com o nome exato da categoria, sem explicação."""
+Respond ONLY with the exact category name, no explanation."""
 
 _CACHE_TTL = 300  # 5 minutes
 _categories_cache: list[str] | None = None
@@ -61,19 +61,19 @@ async def _get_categories() -> list[str]:
             _cache_expires_at = time.monotonic() + _CACHE_TTL
             return _categories_cache
     except Exception:
-        logger.warning("Falha ao buscar categorias do banco — usando lista padrão")
+        logger.warning("Failed to fetch categories from DB — using default list")
     return CATEGORIES
 
 
 async def categorize(expense: ExtractedExpense) -> str:
     categories = await _get_categories()
-    estabelecimento = expense.estabelecimento or "Não informado"
-    descricao = expense.descricao or "Não informada"
+    establishment = expense.establishment or "Not provided"
+    description = expense.description or "Not provided"
 
     prompt = _PROMPT.format(
         categories=", ".join(categories),
-        estabelecimento=estabelecimento,
-        descricao=descricao,
+        establishment=establishment,
+        description=description,
     )
 
     try:
@@ -82,19 +82,19 @@ async def categorize(expense: ExtractedExpense) -> str:
             messages=[{"role": "user", "content": prompt}],
             max_tokens=20,
         )
-        categoria = raw.strip().rstrip(".")
+        category = raw.strip().rstrip(".")
 
-        if categoria in categories:
-            logger.info("Categoria: %r (estabelecimento=%r)", categoria, expense.estabelecimento)
-            return categoria
+        if category in categories:
+            logger.info("Category: %r (establishment=%r)", category, expense.establishment)
+            return category
 
         for cat in categories:
-            if cat.lower() == categoria.lower():
+            if cat.lower() == category.lower():
                 return cat
 
-        logger.warning("Categoria inválida retornada pelo LLM: %r — usando Outros", categoria)
+        logger.warning("Invalid category returned by LLM: %r — using Outros", category)
         return "Outros"
 
     except Exception:
-        logger.exception("Falha na categorização — usando Outros")
+        logger.exception("Categorization failed — using Outros")
         return "Outros"

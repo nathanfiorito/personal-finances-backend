@@ -9,17 +9,17 @@ router = APIRouter(prefix="/api/categories", tags=["categories"])
 
 class CategoryOut(BaseModel):
     id: int
-    nome: str
-    ativo: bool
+    name: str
+    is_active: bool
 
 
 class CategoryCreate(BaseModel):
-    nome: str
+    name: str
 
 
 class CategoryUpdate(BaseModel):
-    nome: str | None = None
-    ativo: bool | None = None
+    name: str | None = None
+    is_active: bool | None = None
 
 
 @router.get("", response_model=list[CategoryOut])
@@ -30,10 +30,10 @@ async def list_categories(_user=Depends(get_current_user)):
 @router.post("", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
 async def create_category(body: CategoryCreate, _user=Depends(get_current_user)):
     try:
-        return await database.create_category_full(body.nome)
+        return await database.create_category_full(body.name)
     except Exception as e:
         if "duplicate" in str(e).lower() or "unique" in str(e).lower():
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Categoria já existe")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Category already exists")
         raise
 
 
@@ -45,11 +45,11 @@ async def update_category(
     if not data:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Nenhum campo para atualizar",
+            detail="No fields to update",
         )
     result = await database.update_category(category_id, data)
     if not result:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Categoria não encontrada")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
     return result
 
 
@@ -57,4 +57,4 @@ async def update_category(
 async def deactivate_category(category_id: int, _user=Depends(get_current_user)):
     deactivated = await database.deactivate_category(category_id)
     if not deactivated:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Categoria não encontrada")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")

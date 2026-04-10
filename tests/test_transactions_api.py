@@ -28,31 +28,31 @@ MOCK_USER = {"id": "test-user-id", "email": "test@example.com"}
 
 MOCK_OUTCOME = Expense(
     id=UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-    valor=Decimal("120.00"),
-    data=date(2025, 3, 10),
-    estabelecimento="Supermercado Extra",
-    descricao="Compras",
-    categoria="Alimentação",
-    categoria_id=1,
-    cnpj=None,
-    tipo_entrada="texto",
+    amount=Decimal("120.00"),
+    date=date(2025, 3, 10),
+    establishment="Supermercado Extra",
+    description="Compras",
+    category="Alimentação",
+    category_id=1,
+    tax_id=None,
+    entry_type="texto",
     transaction_type="outcome",
-    confianca=1.0,
+    confidence=1.0,
     created_at=datetime(2025, 3, 10, 10, 0, 0),
 )
 
 MOCK_INCOME = Expense(
     id=UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
-    valor=Decimal("3000.00"),
-    data=date(2025, 3, 5),
-    estabelecimento=None,
-    descricao="Salário",
-    categoria="Outros",
-    categoria_id=5,
-    cnpj=None,
-    tipo_entrada="texto",
+    amount=Decimal("3000.00"),
+    date=date(2025, 3, 5),
+    establishment=None,
+    description="Salário",
+    category="Outros",
+    category_id=5,
+    tax_id=None,
+    entry_type="texto",
     transaction_type="income",
-    confianca=1.0,
+    confidence=1.0,
     created_at=datetime(2025, 3, 5, 9, 0, 0),
 )
 
@@ -93,8 +93,8 @@ class TestTransactionsList:
             response = client.get("/api/transactions?transaction_type=outcome", headers=AUTH)
             # Assert
             assert response.status_code == 200
-            # Signature: get_expenses_paginated(start, end, categoria_id, page, page_size, transaction_type)
-            # positional args: [0]=start [1]=end [2]=categoria_id [3]=page [4]=page_size [5]=transaction_type
+            # Signature: get_expenses_paginated(start, end, category_id, page, page_size, transaction_type)
+            # positional args: [0]=start [1]=end [2]=category_id [3]=page [4]=page_size [5]=transaction_type
             assert mock_db.call_args.args[5] == "outcome"
 
     def test_filter_by_income(self):
@@ -132,7 +132,7 @@ class TestTransactionsList:
             response = client.get("/api/transactions?page_size=999", headers=AUTH)
         # Assert
         assert response.status_code == 200
-        # Signature: (start, end, categoria_id, page, page_size, transaction_type)
+        # Signature: (start, end, category_id, page, page_size, transaction_type)
         # args[4] = page_size — must be capped to 100
         assert mock_db.call_args.args[4] == 100
 
@@ -155,10 +155,10 @@ class TestTransactionsList:
 class TestTransactionCreate:
     def _body(self, **overrides) -> dict:
         base = {
-            "valor": 50.0,
-            "data": "2025-03-10",
-            "categoria_id": 1,
-            "tipo_entrada": "texto",
+            "amount": 50.0,
+            "date": "2025-03-10",
+            "category_id": 1,
+            "entry_type": "texto",
             "transaction_type": "outcome",
         }
         base.update(overrides)
@@ -181,7 +181,7 @@ class TestTransactionCreate:
             # Act
             response = client.post(
                 "/api/transactions",
-                json=self._body(transaction_type="income", valor=3000.0),
+                json=self._body(transaction_type="income", amount=3000.0),
                 headers=AUTH,
             )
         # Assert
@@ -193,10 +193,10 @@ class TestTransactionCreate:
     def test_missing_transaction_type_defaults_to_outcome(self):
         # Arrange: body without transaction_type — Pydantic default kicks in
         body = {
-            "valor": 50.0,
-            "data": "2025-03-10",
-            "categoria_id": 1,
-            "tipo_entrada": "texto",
+            "amount": 50.0,
+            "date": "2025-03-10",
+            "category_id": 1,
+            "entry_type": "texto",
         }
         with patch("src.services.database.create_expense_direct", new_callable=AsyncMock) as mock_db:
             mock_db.return_value = MOCK_OUTCOME
@@ -217,31 +217,31 @@ class TestTransactionCreate:
         # Assert
         assert response.status_code == 422
 
-    def test_valor_zero_returns_422(self):
+    def test_amount_zero_returns_422(self):
         # Arrange + Act
         response = client.post(
             "/api/transactions",
-            json=self._body(valor=0),
+            json=self._body(amount=0),
             headers=AUTH,
         )
         # Assert
         assert response.status_code == 422
 
-    def test_valor_negative_returns_422(self):
+    def test_amount_negative_returns_422(self):
         # Arrange + Act
         response = client.post(
             "/api/transactions",
-            json=self._body(valor=-10.0),
+            json=self._body(amount=-10.0),
             headers=AUTH,
         )
         # Assert
         assert response.status_code == 422
 
-    def test_valor_above_limit_returns_422(self):
+    def test_amount_above_limit_returns_422(self):
         # Arrange + Act
         response = client.post(
             "/api/transactions",
-            json=self._body(valor=1_000_000.0),
+            json=self._body(amount=1_000_000.0),
             headers=AUTH,
         )
         # Assert
@@ -275,17 +275,17 @@ class TestTransactionUpdate:
             # Act
             response = client.put(
                 f"/api/transactions/{OUTCOME_ID}",
-                json={"valor": 99.0},
+                json={"amount": 99.0},
                 headers=AUTH,
             )
         # Assert
         assert response.status_code == 404
 
-    def test_update_valor_invalid_returns_422(self):
+    def test_update_amount_invalid_returns_422(self):
         # Arrange + Act
         response = client.put(
             f"/api/transactions/{OUTCOME_ID}",
-            json={"valor": -5.0},
+            json={"amount": -5.0},
             headers=AUTH,
         )
         # Assert
@@ -415,7 +415,7 @@ class TestReportsSummaryFilter:
         # Assert
         assert response.status_code == 200
         data = response.json()
-        assert data[0]["categoria"] == "Outros"
+        assert data[0]["category"] == "Outros"
 
     def test_summary_invalid_transaction_type_returns_422(self):
         # Arrange + Act

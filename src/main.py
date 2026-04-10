@@ -104,22 +104,22 @@ async def webhook(request: Request) -> dict:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     update = await request.json()
-    logger.debug("Update recebido: %s", update)
+    logger.debug("Update received: %s", update)
 
     # 2. Validate chat_id is authorized (single-user bot)
     chat_id = _extract_chat_id(update)
     if chat_id is not None and chat_id != settings.telegram_allowed_chat_id:
-        logger.warning("Webhook recebido de chat_id não autorizado: %d", chat_id)
+        logger.warning("Webhook received from unauthorized chat_id: %d", chat_id)
         try:
-            await send_message(chat_id, "Usuário não suportado")
+            await send_message(chat_id, "Unsupported user")
         except Exception:
-            logger.exception("Erro ao enviar mensagem de usuário não suportado para chat_id %d", chat_id)
+            logger.exception("Error sending unsupported user message to chat_id %d", chat_id)
         return {"ok": True}
 
     try:
         await handle_update(update)
     except Exception:
-        logger.exception("Erro ao processar update: %s", update)
+        logger.exception("Error processing update: %s", update)
 
     return {"ok": True}
 
