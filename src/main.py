@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 
 # ── SigNoz Observability (OpenTelemetry) ─────────────────────────────────────
 # Configure OpenTelemetry before the app is created so all auto-instrumentation
-# (httpx, fastapi, supabase) is set up before the first request.
+# (httpx, supabase) is set up before the first request.
+# FastAPI instrumentation will be applied after app creation.
 if settings.signoz_otlp_endpoint:
     os.environ.setdefault("OTEL_SERVICE_NAME", settings.otel_service_name)
     os.environ.setdefault("OTEL_EXPORTER_OTLP_ENDPOINT", settings.signoz_otlp_endpoint)
@@ -30,7 +31,6 @@ if settings.signoz_otlp_endpoint:
     os.environ.setdefault("OTEL_METRICS_EXPORTER", "otlp")
     os.environ.setdefault("OTEL_LOGS_EXPORTER", "otlp")
     try:
-        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
         from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
         from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
         from opentelemetry.sdk.resources import Resource
@@ -48,8 +48,8 @@ if settings.signoz_otlp_endpoint:
         )
         trace.set_tracer_provider(tracer_provider)
 
-        FastAPIInstrumentor.instrument_app(app)
         HTTPXClientInstrumentor().instrument()
+        SQLAlchemyInstrumentor().instrument()
         logger.info("SigNoz observability enabled (service=%s, endpoint=%s)", settings.otel_service_name, settings.signoz_otlp_endpoint)
     except ImportError as e:
         logger.warning("OpenTelemetry packages not installed — run: pip install -r requirements.txt (%s)", e)
@@ -70,6 +70,14 @@ app = FastAPI(title="FinBot", docs_url=None, redoc_url=None, lifespan=lifespan)
 # Add openapi_url=None to the FastAPI constructor above.
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Instrument FastAPI after app creation
+if settings.signoz_otlp_endpoint:
+    try:
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        FastAPIInstrumentor.instrument_app(app)
+    except ImportError:
+        pass
 
 # CORS: only allow requests from the frontend domain
 app.add_middleware(
