@@ -28,7 +28,6 @@ if settings.signoz_otlp_endpoint:
     os.environ.setdefault("OTEL_SERVICE_NAME", settings.otel_service_name)
     try:
         from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-        from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
         from opentelemetry.sdk.resources import Resource
         from opentelemetry import trace
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -59,7 +58,6 @@ if settings.signoz_otlp_endpoint:
         logging.getLogger().addHandler(LoggingHandler(level=logging.INFO, logger_provider=logger_provider))
 
         HTTPXClientInstrumentor().instrument()
-        SQLAlchemyInstrumentor().instrument()
         logger.info("SigNoz observability enabled (service=%s, endpoint=%s)", settings.otel_service_name, settings.signoz_otlp_endpoint)
     except ImportError as e:
         logger.warning("OpenTelemetry packages not installed — run: pip install -r requirements.txt (%s)", e)
