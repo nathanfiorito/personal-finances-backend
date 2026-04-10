@@ -12,9 +12,9 @@ TELEGRAM_API = f"https://api.telegram.org/bot{settings.telegram_bot_token}"
 def _confirmation_keyboard() -> dict:
     return {
         "inline_keyboard": [[
-            {"text": "✅ Confirmar", "callback_data": "confirm"},
-            {"text": "✏️ Categoria", "callback_data": "edit_category"},
-            {"text": "❌ Cancelar", "callback_data": "cancel"},
+            {"text": "✅ Confirm", "callback_data": "confirm"},
+            {"text": "✏️ Category", "callback_data": "edit_category"},
+            {"text": "❌ Cancel", "callback_data": "cancel"},
         ]]
     }
 
@@ -22,8 +22,8 @@ def _confirmation_keyboard() -> dict:
 def _duplicate_warning_keyboard() -> dict:
     return {
         "inline_keyboard": [[
-            {"text": "💾 Salvar mesmo assim", "callback_data": "force_confirm"},
-            {"text": "❌ Cancelar", "callback_data": "cancel"},
+            {"text": "💾 Save anyway", "callback_data": "force_confirm"},
+            {"text": "❌ Cancel", "callback_data": "cancel"},
         ]]
     }
 

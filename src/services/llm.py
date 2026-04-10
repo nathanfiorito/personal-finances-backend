@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Any
 
-from openai import AsyncOpenAI, APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
+from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI, RateLimitError
 
 from src.config.settings import settings
 
@@ -60,28 +60,28 @@ async def chat_completion(
             return content
 
         except APITimeoutError as e:
-            logger.warning("Timeout na chamada ao LLM (tentativa %d/%d)", attempt, max_retries)
+            logger.warning("LLM call timeout (attempt %d/%d)", attempt, max_retries)
             if attempt == max_retries:
-                raise LLMTimeoutError("Tempo limite excedido ao chamar o LLM") from e
+                raise LLMTimeoutError("LLM call timed out after all retries") from e
             await asyncio.sleep(delay)
             delay *= 2
 
         except RateLimitError as e:
-            logger.warning("Rate limit atingido (tentativa %d/%d)", attempt, max_retries)
+            logger.warning("Rate limit hit (attempt %d/%d)", attempt, max_retries)
             if attempt == max_retries:
-                raise LLMRateLimitError("Limite de requisições da API atingido") from e
+                raise LLMRateLimitError("API rate limit reached after all retries") from e
             await asyncio.sleep(delay)
             delay *= 2
 
         except APIConnectionError:
-            logger.warning("Erro de conexão com OpenRouter (tentativa %d/%d)", attempt, max_retries)
+            logger.warning("OpenRouter connection error (attempt %d/%d)", attempt, max_retries)
             if attempt == max_retries:
                 raise
             await asyncio.sleep(delay)
             delay *= 2
 
         except APIStatusError as e:
-            logger.error("Erro de status da API: %s %s", e.status_code, e.message)
+            logger.error("API status error: %s %s", e.status_code, e.message)
             raise
 
-    raise RuntimeError("Falha após todas as tentativas")
+    raise RuntimeError("Failed after all attempts")
