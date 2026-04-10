@@ -29,9 +29,9 @@ async def send_monthly_report() -> None:
         from src.agents import reporter
         report = await reporter.generate_report(start, end)
         await telegram.send_message(settings.telegram_allowed_chat_id, report)
-        logger.info("Relatório mensal enviado: %s a %s", start, end)
+        logger.info("Monthly report sent: %s to %s", start, end)
     except Exception:
-        logger.exception("Erro ao enviar relatório mensal automático")
+        logger.exception("Error sending automatic monthly report")
 
 
 def start_scheduler() -> None:
@@ -42,10 +42,10 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
     scheduler.start()
-    logger.info("Scheduler iniciado (relatório mensal: dia 1 às 08:00 BRT)")
+    logger.info("Scheduler started (monthly report: 1st at 08:00 BRT)")
 
 
 def stop_scheduler() -> None:
     if scheduler.running:
         scheduler.shutdown(wait=False)
-    logger.info("Scheduler encerrado")
+    logger.info("Scheduler stopped")
