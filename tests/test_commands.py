@@ -174,9 +174,9 @@ class TestHandleExportar:
         from src.models.expense import Expense
         expense = Expense(
             id="550e8400-e29b-41d4-a716-446655440001",
-            valor=Decimal("50.00"), data=date(2025, 3, 10),
-            estabelecimento="Mercado", descricao=None, categoria="Alimentação",
-            cnpj=None, tipo_entrada="texto", confianca=0.9,
+            amount=Decimal("50.00"), date=date(2025, 3, 10),
+            establishment="Mercado", description=None, category="Alimentação",
+            tax_id=None, entry_type="texto", confidence=0.9,
             created_at=datetime(2025, 3, 10, 10, 0, 0),
         )
         mocker.patch("src.services.database.get_expenses_by_period", new_callable=AsyncMock, return_value=[expense])
@@ -218,9 +218,9 @@ class TestGenerateCsv:
         from src.models.expense import Expense
         expense = Expense(
             id="550e8400-e29b-41d4-a716-446655440001",
-            valor=Decimal("45.90"), data=date(2025, 1, 15),
-            estabelecimento="Mercado", descricao="Compras", categoria="Alimentação",
-            cnpj=None, tipo_entrada="texto", confianca=0.9,
+            amount=Decimal("45.90"), date=date(2025, 1, 15),
+            establishment="Mercado", description="Compras", category="Alimentação",
+            tax_id=None, entry_type="texto", confidence=0.9,
             created_at=datetime(2025, 1, 15, 10, 0, 0),
         )
         result = _generate_csv([expense])
@@ -232,9 +232,9 @@ class TestGenerateCsv:
         from src.models.expense import Expense
         expense = Expense(
             id="550e8400-e29b-41d4-a716-446655440001",
-            valor=Decimal("45.90"), data=date(2025, 1, 15),
-            estabelecimento="Mercado", descricao="Compras", categoria="Alimentação",
-            cnpj=None, tipo_entrada="texto", confianca=0.9,
+            amount=Decimal("45.90"), date=date(2025, 1, 15),
+            establishment="Mercado", description="Compras", category="Alimentação",
+            tax_id=None, entry_type="texto", confidence=0.9,
             created_at=datetime(2025, 1, 15, 10, 0, 0),
         )
         result = _generate_csv([expense]).decode("utf-8-sig")

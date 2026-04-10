@@ -6,18 +6,18 @@ from unittest.mock import AsyncMock
 from src.agents.reporter import generate_report, _fmt
 
 
-def _expense(categoria: str, valor: str, estabelecimento: str | None = None) -> object:
+def _expense(category: str, amount: str, establishment: str | None = None) -> object:
     from src.models.expense import Expense
     return Expense(
         id="550e8400-e29b-41d4-a716-446655440001",
-        valor=Decimal(valor),
-        data=date(2024, 1, 15),
-        estabelecimento=estabelecimento,
-        descricao=None,
-        categoria=categoria,
-        cnpj=None,
-        tipo_entrada="texto",
-        confianca=0.9,
+        amount=Decimal(amount),
+        date=date(2024, 1, 15),
+        establishment=establishment,
+        description=None,
+        category=category,
+        tax_id=None,
+        entry_type="texto",
+        confidence=0.9,
         created_at=datetime(2024, 1, 15, 10, 0, 0),
     )
 

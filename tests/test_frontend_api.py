@@ -30,20 +30,20 @@ MOCK_USER = {"id": "test-user-id", "email": "test@example.com"}
 
 MOCK_EXPENSE = Expense(
     id=UUID("12345678-1234-5678-1234-567812345678"),
-    valor=Decimal("50.00"),
-    data=date(2025, 1, 15),
-    estabelecimento="Mercado",
-    descricao="Compras",
-    categoria="Alimentação",
-    categoria_id=1,
-    cnpj=None,
-    tipo_entrada="texto",
+    amount=Decimal("50.00"),
+    date=date(2025, 1, 15),
+    establishment="Mercado",
+    description="Compras",
+    category="Alimentação",
+    category_id=1,
+    tax_id=None,
+    entry_type="texto",
     transaction_type="outcome",
-    confianca=1.0,
+    confidence=1.0,
     created_at=datetime(2025, 1, 15, 12, 0, 0),
 )
 
-MOCK_CATEGORY = {"id": 1, "nome": "Alimentação", "ativo": True}
+MOCK_CATEGORY = {"id": 1, "name": "Alimentação", "is_active": True}
 
 AUTH_HEADER = {"Authorization": "Bearer valid-token"}
 
@@ -196,7 +196,7 @@ class TestExpenses:
         assert call_kwargs[0][0] == date(2025, 1, 1)
         assert call_kwargs[0][1] == date(2025, 1, 31)
 
-    def test_list_expenses_filters_by_categoria_id(self, mocker):
+    def test_list_expenses_filters_by_category_id(self, mocker):
         # Arrange
         mock_db = mocker.patch(
             "src.routers.transactions.database.get_expenses_paginated",
@@ -204,7 +204,7 @@ class TestExpenses:
             return_value=([MOCK_EXPENSE], 1),
         )
         # Act
-        response = client.get("/api/transactions?categoria_id=1", headers=AUTH_HEADER)
+        response = client.get("/api/transactions?category_id=1", headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 200
         assert mock_db.call_args[0][2] == 1
@@ -264,11 +264,11 @@ class TestExpenses:
             return_value=MOCK_EXPENSE,
         )
         body = {
-            "valor": "50.00",
-            "data": "2025-01-15",
-            "estabelecimento": "Mercado",
-            "categoria_id": 1,
-            "tipo_entrada": "texto",
+            "amount": "50.00",
+            "date": "2025-01-15",
+            "establishment": "Mercado",
+            "category_id": 1,
+            "entry_type": "texto",
         }
         # Act
         response = client.post("/api/transactions", json=body, headers=AUTH_HEADER)
@@ -276,17 +276,17 @@ class TestExpenses:
         assert response.status_code == 201
         assert response.json()["id"] == EXPENSE_ID
 
-    def test_create_expense_valor_zero_returns_422(self, mocker):
+    def test_create_expense_amount_zero_returns_422(self, mocker):
         # Arrange
-        body = {"valor": "0", "data": "2025-01-15", "categoria_id": 1, "tipo_entrada": "texto"}
+        body = {"amount": "0", "date": "2025-01-15", "category_id": 1, "entry_type": "texto"}
         # Act
         response = client.post("/api/transactions", json=body, headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 422
 
-    def test_create_expense_valor_too_large_returns_422(self, mocker):
+    def test_create_expense_amount_too_large_returns_422(self, mocker):
         # Arrange
-        body = {"valor": "1000000", "data": "2025-01-15", "categoria_id": 1, "tipo_entrada": "texto"}
+        body = {"amount": "1000000", "date": "2025-01-15", "category_id": 1, "entry_type": "texto"}
         # Act
         response = client.post("/api/transactions", json=body, headers=AUTH_HEADER)
         # Assert
@@ -294,7 +294,7 @@ class TestExpenses:
 
     def test_update_expense_returns_updated(self, mocker):
         # Arrange
-        updated = MOCK_EXPENSE.model_copy(update={"estabelecimento": "Padaria"})
+        updated = MOCK_EXPENSE.model_copy(update={"establishment": "Padaria"})
         mocker.patch(
             "src.routers.transactions.database.update_expense",
             new_callable=AsyncMock,
@@ -303,12 +303,12 @@ class TestExpenses:
         # Act
         response = client.put(
             f"/api/transactions/{EXPENSE_ID}",
-            json={"estabelecimento": "Padaria"},
+            json={"establishment": "Padaria"},
             headers=AUTH_HEADER,
         )
         # Assert
         assert response.status_code == 200
-        assert response.json()["estabelecimento"] == "Padaria"
+        assert response.json()["establishment"] == "Padaria"
 
     def test_update_expense_not_found_returns_404(self, mocker):
         # Arrange
@@ -320,7 +320,7 @@ class TestExpenses:
         # Act
         response = client.put(
             f"/api/transactions/{EXPENSE_ID}",
-            json={"estabelecimento": "Padaria"},
+            json={"establishment": "Padaria"},
             headers=AUTH_HEADER,
         )
         # Assert
@@ -377,10 +377,10 @@ class TestCategories:
             return_value=MOCK_CATEGORY,
         )
         # Act
-        response = client.post("/api/categories", json={"nome": "Alimentação"}, headers=AUTH_HEADER)
+        response = client.post("/api/categories", json={"name": "Alimentação"}, headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 201
-        assert response.json()["nome"] == "Alimentação"
+        assert response.json()["name"] == "Alimentação"
 
     def test_create_category_duplicate_returns_409(self, mocker):
         # Arrange
@@ -390,13 +390,13 @@ class TestCategories:
             side_effect=Exception("duplicate key value violates unique constraint"),
         )
         # Act
-        response = client.post("/api/categories", json={"nome": "Alimentação"}, headers=AUTH_HEADER)
+        response = client.post("/api/categories", json={"name": "Alimentação"}, headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 409
 
     def test_update_category_partial_patch(self, mocker):
         # Arrange
-        updated = {**MOCK_CATEGORY, "nome": "Alimentação e Bebidas"}
+        updated = {**MOCK_CATEGORY, "name": "Alimentação e Bebidas"}
         mocker.patch(
             "src.routers.categories.database.update_category",
             new_callable=AsyncMock,
@@ -405,12 +405,12 @@ class TestCategories:
         # Act
         response = client.patch(
             "/api/categories/1",
-            json={"nome": "Alimentação e Bebidas"},
+            json={"name": "Alimentação e Bebidas"},
             headers=AUTH_HEADER,
         )
         # Assert
         assert response.status_code == 200
-        assert response.json()["nome"] == "Alimentação e Bebidas"
+        assert response.json()["name"] == "Alimentação e Bebidas"
 
     def test_update_category_not_found_returns_404(self, mocker):
         # Arrange
@@ -420,7 +420,7 @@ class TestCategories:
             return_value=None,
         )
         # Act
-        response = client.patch("/api/categories/99", json={"nome": "X"}, headers=AUTH_HEADER)
+        response = client.patch("/api/categories/99", json={"name": "X"}, headers=AUTH_HEADER)
         # Assert
         assert response.status_code == 404
 
@@ -454,12 +454,12 @@ class TestCategories:
 # ---------------------------------------------------------------------------
 
 class TestReports:
-    def _make_expense(self, month: int, categoria: str, valor: str) -> Expense:
+    def _make_expense(self, month: int, category: str, amount: str) -> Expense:
         return MOCK_EXPENSE.model_copy(
             update={
-                "data": date(2025, month, 1),
-                "categoria": categoria,
-                "valor": Decimal(valor),
+                "date": date(2025, month, 1),
+                "category": category,
+                "amount": Decimal(amount),
             }
         )
 
@@ -482,9 +482,9 @@ class TestReports:
         # Assert
         assert response.status_code == 200
         body = response.json()
-        assert body[0]["categoria"] == "Alimentação"
-        assert body[1]["categoria"] == "Lazer"
-        assert body[2]["categoria"] == "Transporte"
+        assert body[0]["category"] == "Alimentação"
+        assert body[1]["category"] == "Lazer"
+        assert body[2]["category"] == "Transporte"
 
     def test_summary_missing_params_returns_422(self):
         # Arrange / Act
@@ -577,7 +577,7 @@ class TestExport:
         # Assert
         lines = response.text.strip().splitlines()
         header = lines[0]
-        expected_cols = ["id", "data", "estabelecimento", "descricao", "categoria", "valor", "cnpj", "tipo_entrada", "confianca", "created_at"]
+        expected_cols = ["id", "date", "establishment", "description", "category", "amount", "tax_id", "entry_type", "confidence", "created_at"]
         for col in expected_cols:
             assert col in header
 

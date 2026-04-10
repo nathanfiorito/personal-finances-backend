@@ -17,19 +17,19 @@ from src.services.llm import LLMTimeoutError, LLMRateLimitError
 
 class TestParseLlmJson:
     def test_clean_json(self):
-        raw = '{"valor": 45.90, "data": "2024-01-15", "estabelecimento": "Mercado", "descricao": null, "cnpj": null, "confianca": 0.9}'
+        raw = '{"amount": 45.90, "date": "2024-01-15", "establishment": "Mercado", "description": null, "tax_id": null, "confidence": 0.9}'
         result = _parse_llm_json(raw)
-        assert result["valor"] == 45.90
+        assert result["amount"] == 45.90
 
     def test_json_wrapped_in_markdown(self):
-        raw = '```json\n{"valor": 10.0}\n```'
+        raw = '```json\n{"amount": 10.0}\n```'
         result = _parse_llm_json(raw)
-        assert result["valor"] == 10.0
+        assert result["amount"] == 10.0
 
     def test_json_with_surrounding_text(self):
-        raw = 'Aqui está o JSON:\n{"valor": 99.99}\nEspero que ajude!'
+        raw = 'Aqui está o JSON:\n{"amount": 99.99}\nEspero que ajude!'
         result = _parse_llm_json(raw)
-        assert result["valor"] == 99.99
+        assert result["amount"] == 99.99
 
     def test_invalid_json_raises(self):
         with pytest.raises(ExtractionError):
@@ -39,58 +39,58 @@ class TestParseLlmJson:
 class TestBuildExpense:
     def _base(self, **overrides) -> dict:
         data = {
-            "valor": 50.0,
-            "data": "2024-03-10",
-            "estabelecimento": "Posto Shell",
-            "descricao": "Combustível",
-            "cnpj": None,
-            "confianca": 0.95,
+            "amount": 50.0,
+            "date": "2024-03-10",
+            "establishment": "Posto Shell",
+            "description": "Combustível",
+            "tax_id": None,
+            "confidence": 0.95,
         }
         data.update(overrides)
         return data
 
     def test_basic_build(self):
         expense = _build_expense(self._base(), "texto")
-        assert expense.valor == Decimal("50.0")
-        assert expense.data == date(2024, 3, 10)
-        assert expense.estabelecimento == "Posto Shell"
-        assert expense.confianca == 0.95
-        assert expense.tipo_entrada == "texto"
+        assert expense.amount == Decimal("50.0")
+        assert expense.date == date(2024, 3, 10)
+        assert expense.establishment == "Posto Shell"
+        assert expense.confidence == 0.95
+        assert expense.entry_type == "texto"
 
-    def test_missing_valor_raises(self):
-        with pytest.raises(ExtractionError, match="valor"):
-            _build_expense({"data": "2024-01-01", "confianca": 0.5}, "texto")
+    def test_missing_amount_raises(self):
+        with pytest.raises(ExtractionError, match="amount"):
+            _build_expense({"date": "2024-01-01", "confidence": 0.5}, "texto")
 
-    def test_invalid_data_falls_back_to_today(self):
-        expense = _build_expense(self._base(data="not-a-date"), "imagem")
-        assert expense.data == date.today()
+    def test_invalid_date_falls_back_to_today(self):
+        expense = _build_expense(self._base(date="not-a-date"), "imagem")
+        assert expense.date == date.today()
 
-    def test_null_data_falls_back_to_today(self):
-        expense = _build_expense(self._base(data=None), "imagem")
-        assert expense.data == date.today()
+    def test_null_date_falls_back_to_today(self):
+        expense = _build_expense(self._base(date=None), "imagem")
+        assert expense.date == date.today()
 
-    def test_cnpj_formatted(self):
-        expense = _build_expense(self._base(cnpj="12345678000195"), "imagem")
-        assert expense.cnpj == "12.345.678/0001-95"
+    def test_tax_id_formatted(self):
+        expense = _build_expense(self._base(tax_id="12345678000195"), "imagem")
+        assert expense.tax_id == "12.345.678/0001-95"
 
     def test_empty_string_fields_become_none(self):
-        expense = _build_expense(self._base(estabelecimento="", descricao=""), "texto")
-        assert expense.estabelecimento is None
-        assert expense.descricao is None
+        expense = _build_expense(self._base(establishment="", description=""), "texto")
+        assert expense.establishment is None
+        assert expense.description is None
 
 
 class TestExtractFromText:
     @pytest.mark.asyncio
     async def test_successful_extraction(self):
-        mock_response = '{"valor": 120.0, "data": null, "estabelecimento": "Posto Shell", "descricao": "Combustível", "cnpj": null, "confianca": 0.85}'
+        mock_response = '{"amount": 120.0, "date": null, "establishment": "Posto Shell", "description": "Combustível", "tax_id": null, "confidence": 0.85}'
 
         with patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock) as mock_llm:
             mock_llm.return_value = mock_response
             expense = await extract_from_text("gastei 120 no posto shell")
 
-        assert expense.valor == Decimal("120.0")
-        assert expense.estabelecimento == "Posto Shell"
-        assert expense.tipo_entrada == "texto"
+        assert expense.amount == Decimal("120.0")
+        assert expense.establishment == "Posto Shell"
+        assert expense.entry_type == "texto"
         mock_llm.assert_called_once()
 
     @pytest.mark.asyncio
@@ -103,7 +103,7 @@ class TestExtractFromText:
 
     @pytest.mark.asyncio
     async def test_uses_fast_model(self):
-        mock_response = '{"valor": 50.0, "data": "2024-01-01", "estabelecimento": "Mercado", "descricao": null, "cnpj": null, "confianca": 0.9}'
+        mock_response = '{"amount": 50.0, "date": "2024-01-01", "establishment": "Mercado", "description": null, "tax_id": null, "confidence": 0.9}'
 
         with patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock) as mock_llm:
             mock_llm.return_value = mock_response
@@ -116,21 +116,21 @@ class TestExtractFromText:
 class TestExtractFromImage:
     @pytest.mark.asyncio
     async def test_successful_extraction(self):
-        mock_response = '{"valor": 45.90, "data": "2024-01-15", "estabelecimento": "Supermercado Extra", "descricao": "Compras", "cnpj": "12.345.678/0001-95", "confianca": 0.92}'
+        mock_response = '{"amount": 45.90, "date": "2024-01-15", "establishment": "Supermercado Extra", "description": "Compras", "tax_id": "12.345.678/0001-95", "confidence": 0.92}'
         fake_image = b"\xff\xd8\xff" + b"\x00" * 100  # minimal fake JPEG header
 
         with patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock) as mock_llm:
             mock_llm.return_value = mock_response
             expense = await extract_from_image(fake_image)
 
-        assert expense.valor == Decimal("45.90")
-        assert expense.estabelecimento == "Supermercado Extra"
-        assert expense.tipo_entrada == "imagem"
-        assert expense.cnpj == "12.345.678/0001-95"
+        assert expense.amount == Decimal("45.90")
+        assert expense.establishment == "Supermercado Extra"
+        assert expense.entry_type == "imagem"
+        assert expense.tax_id == "12.345.678/0001-95"
 
     @pytest.mark.asyncio
     async def test_uses_vision_model(self):
-        mock_response = '{"valor": 10.0, "data": "2024-01-01", "estabelecimento": null, "descricao": null, "cnpj": null, "confianca": 0.5}'
+        mock_response = '{"amount": 10.0, "date": "2024-01-01", "establishment": null, "description": null, "tax_id": null, "confidence": 0.5}'
         fake_image = b"\xff\xd8\xff" + b"\x00" * 100
 
         with patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock) as mock_llm:
@@ -171,12 +171,12 @@ class TestExtractFromPdf:
     async def test_pdf_with_text_uses_haiku(self, mocker):
         mocker.patch("src.agents.extractor._extract_text_from_pdf", return_value="NF-e valor R$ 150,00 data 2024-01-15")
         mock_llm = mocker.patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock)
-        mock_llm.return_value = '{"valor": 150.0, "data": "2024-01-15", "estabelecimento": "Loja X", "descricao": null, "cnpj": null, "confianca": 0.95}'
+        mock_llm.return_value = '{"amount": 150.0, "date": "2024-01-15", "establishment": "Loja X", "description": null, "tax_id": null, "confidence": 0.95}'
 
         expense = await extract_from_pdf(b"fake-pdf")
 
-        assert expense.tipo_entrada == "pdf"
-        assert expense.valor == Decimal("150.0")
+        assert expense.entry_type == "pdf"
+        assert expense.amount == Decimal("150.0")
         model_arg = mock_llm.call_args.kwargs.get("model", mock_llm.call_args.args[0] if mock_llm.call_args.args else "")
         assert "haiku" in model_arg
 
@@ -185,11 +185,11 @@ class TestExtractFromPdf:
         mocker.patch("src.agents.extractor._extract_text_from_pdf", return_value=None)
         mocker.patch("src.agents.extractor._pdf_to_image", return_value=b"\xff\xd8\xff" + b"\x00" * 100)
         mock_llm = mocker.patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock)
-        mock_llm.return_value = '{"valor": 80.0, "data": "2024-01-15", "estabelecimento": null, "descricao": null, "cnpj": null, "confianca": 0.7}'
+        mock_llm.return_value = '{"amount": 80.0, "date": "2024-01-15", "establishment": null, "description": null, "tax_id": null, "confidence": 0.7}'
 
         expense = await extract_from_pdf(b"fake-scanned-pdf")
 
-        assert expense.tipo_entrada == "pdf"
+        assert expense.entry_type == "pdf"
         model_arg = mock_llm.call_args.kwargs.get("model", mock_llm.call_args.args[0] if mock_llm.call_args.args else "")
         assert "sonnet" in model_arg
 
@@ -215,12 +215,12 @@ class TestBuildExpenseTransactionType:
 
     def _base(self, **overrides) -> dict:
         data = {
-            "valor": 50.0,
-            "data": "2024-03-10",
-            "estabelecimento": "Loja X",
-            "descricao": None,
-            "cnpj": None,
-            "confianca": 0.9,
+            "amount": 50.0,
+            "date": "2024-03-10",
+            "establishment": "Loja X",
+            "description": None,
+            "tax_id": None,
+            "confidence": 0.9,
         }
         data.update(overrides)
         return data
@@ -263,8 +263,8 @@ class TestExtractFromTextTransactionType:
     async def test_income_message_returns_income_type(self):
         # Arrange: LLM identifies the message as income
         mock_response = (
-            '{"valor": 3000.0, "data": "2025-03-05", "estabelecimento": null, '
-            '"descricao": "Salário", "cnpj": null, "transaction_type": "income", "confianca": 0.95}'
+            '{"amount": 3000.0, "date": "2025-03-05", "establishment": null, '
+            '"description": "Salário", "tax_id": null, "transaction_type": "income", "confidence": 0.95}'
         )
         with patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock) as mock_llm:
             mock_llm.return_value = mock_response
@@ -277,8 +277,8 @@ class TestExtractFromTextTransactionType:
     async def test_outcome_message_returns_outcome_type(self):
         # Arrange: LLM identifies the message as outcome
         mock_response = (
-            '{"valor": 50.0, "data": "2025-03-10", "estabelecimento": "Mercado", '
-            '"descricao": null, "cnpj": null, "transaction_type": "outcome", "confianca": 0.9}'
+            '{"amount": 50.0, "date": "2025-03-10", "establishment": "Mercado", '
+            '"description": null, "tax_id": null, "transaction_type": "outcome", "confidence": 0.9}'
         )
         with patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock) as mock_llm:
             mock_llm.return_value = mock_response
@@ -291,8 +291,8 @@ class TestExtractFromTextTransactionType:
     async def test_ambiguous_message_defaults_to_outcome(self):
         # Arrange: LLM does not include transaction_type
         mock_response = (
-            '{"valor": 100.0, "data": null, "estabelecimento": null, '
-            '"descricao": "transação", "cnpj": null, "confianca": 0.5}'
+            '{"amount": 100.0, "date": null, "establishment": null, '
+            '"description": "transação", "tax_id": null, "confidence": 0.5}'
         )
         with patch("src.agents.extractor.llm.chat_completion", new_callable=AsyncMock) as mock_llm:
             mock_llm.return_value = mock_response
@@ -303,22 +303,22 @@ class TestExtractFromTextTransactionType:
 
 
 class TestExpenseModel:
-    def test_valor_negativo_raises(self):
+    def test_amount_negative_raises(self):
         from pydantic import ValidationError
         with pytest.raises(ValidationError):
             from src.models.expense import ExtractedExpense
-            ExtractedExpense(valor=Decimal("-10"), data=date.today(), tipo_entrada="texto")
+            ExtractedExpense(amount=Decimal("-10"), date=date.today(), entry_type="texto")
 
-    def test_valor_acima_do_limite_raises(self):
+    def test_amount_above_limit_raises(self):
         from pydantic import ValidationError
         with pytest.raises(ValidationError):
             from src.models.expense import ExtractedExpense
-            ExtractedExpense(valor=Decimal("1000000"), data=date.today(), tipo_entrada="texto")
+            ExtractedExpense(amount=Decimal("1000000"), date=date.today(), entry_type="texto")
 
     def test_transaction_type_defaults_to_outcome(self):
         # Arrange + Act
         from src.models.expense import ExtractedExpense
-        expense = ExtractedExpense(valor=Decimal("50"), data=date.today(), tipo_entrada="texto")
+        expense = ExtractedExpense(amount=Decimal("50"), date=date.today(), entry_type="texto")
         # Assert
         assert expense.transaction_type == "outcome"
 
@@ -326,9 +326,9 @@ class TestExpenseModel:
         # Arrange + Act
         from src.models.expense import ExtractedExpense
         expense = ExtractedExpense(
-            valor=Decimal("1000"),
-            data=date.today(),
-            tipo_entrada="texto",
+            amount=Decimal("1000"),
+            date=date.today(),
+            entry_type="texto",
             transaction_type="income",
         )
         # Assert
