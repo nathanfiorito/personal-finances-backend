@@ -1,8 +1,8 @@
-# Arquitetura — FinBot
+# Arquitetura — Personal Finances
 
 ## Visão Geral
 
-FinBot é um bot pessoal no Telegram para controle de despesas. Recebe comprovantes de pagamento (foto, PDF ou texto), extrai e categoriza os dados automaticamente usando agentes de IA, e persiste as informações para geração de relatórios financeiros. A arquitetura é um monólito modular em Python/FastAPI, com LLM via OpenRouter e persistência em Supabase (PostgreSQL).
+Personal Finances é um bot pessoal no Telegram para controle de despesas. Recebe comprovantes de pagamento (foto, PDF ou texto), extrai e categoriza os dados automaticamente usando agentes de IA, e persiste as informações para geração de relatórios financeiros. A arquitetura é um monólito modular em Python/FastAPI, com LLM via OpenRouter e persistência em Supabase (PostgreSQL).
 
 ## Componentes Principais
 
@@ -84,7 +84,7 @@ FinBot é um bot pessoal no Telegram para controle de despesas. Recebe comprovan
 │              (DNS + Proxy + DDoS)                    │
 │                                                     │
 │   Dev: Cloudflare Tunnel ──► localhost:8000          │
-│   Prod: DNS ──► Render (finbot.onrender.com)        │
+│   Prod: DNS ──► Render (personal-finances.onrender.com)        │
 └──────────────────────┬──────────────────────────────┘
                        │ HTTPS
                        ▼

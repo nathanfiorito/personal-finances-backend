@@ -1,4 +1,4 @@
-# FinBot — Bot de Controle de Despesas no Telegram
+# Personal Finances — Bot de Controle de Despesas no Telegram
 
 Bot pessoal no Telegram para registro e categorização automática de despesas usando agentes de IA.
 
@@ -89,8 +89,8 @@ telegram-finances/
 
 ```bash
 # Clonar o repositório
-git clone https://github.com/seu-usuario/finbot.git
-cd finbot
+git clone https://github.com/seu-usuario/personal-finances.git
+cd personal-finances
 
 # Criar virtual environment
 python -m venv .venv

@@ -125,7 +125,7 @@ class TestCORS:
         "https://www.nathanfiorito.com.br",
         "https://app.nathanfiorito.com.br",
         "https://api.nathanfiorito.com.br",
-        "https://finbot.nathanfiorito.com.br",
+        "https://personal-finances.nathanfiorito.com.br",
     ])
     def test_cors_allowed_subdomains(self, origin):
         response = client.options(

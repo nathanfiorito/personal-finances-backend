@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
 
 
-app = FastAPI(title="FinBot", docs_url=None, redoc_url=None, lifespan=lifespan)
+app = FastAPI(title="Personal Finances", docs_url=None, redoc_url=None, lifespan=lifespan)
 # TODO(security/F-01): Disable OpenAPI schema in production to avoid exposing full API map to unauthenticated users.
 # Add openapi_url=None to the FastAPI constructor above.
 app.state.limiter = limiter

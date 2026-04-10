@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     # Observability (SigNoz / OpenTelemetry)
     signoz_otlp_endpoint: str = "https://signoz-otel.nathanfiorito.com.br:4318"
-    otel_service_name: str = "finbot-backend"
+    otel_service_name: str = "personal-finances-backend"
 
 
 
