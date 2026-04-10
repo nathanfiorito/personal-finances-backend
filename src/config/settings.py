@@ -19,9 +19,9 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_service_key: str = ""
 
-    # Observability (optional)
-    hyperdx_api_key: str = ""
-    otel_service_name: str = "finbot"
+    # Observability (SigNoz / OpenTelemetry)
+    signoz_otlp_endpoint: str = "https://signoz-otel.nathanfiorito.com.br:4318"
+    otel_service_name: str = "finbot-backend"
 
 
 
