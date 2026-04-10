@@ -103,7 +103,7 @@ class TestDispatchCommand:
     @pytest.mark.asyncio
     async def test_botname_suffix_stripped(self, mocker):
         mock_start = mocker.patch("src.handlers.commands.handle_start", new_callable=AsyncMock)
-        await dispatch_command(CHAT_ID, "/start@FinBot")
+        await dispatch_command(CHAT_ID, "/start@PersonalFinancesBot")
         mock_start.assert_called_once_with(CHAT_ID)
 
 

@@ -1,4 +1,4 @@
-# Estimativa de Custo Mensal — FinBot
+# Estimativa de Custo Mensal — Personal Finances
 
 ## Cenário: Uso Pessoal (~100 despesas/mês)
 

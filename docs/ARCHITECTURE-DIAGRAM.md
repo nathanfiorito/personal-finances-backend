@@ -1,4 +1,4 @@
-# Diagrama de Arquitetura — FinBot
+# Diagrama de Arquitetura — Personal Finances
 
 ## Fluxo Principal
 

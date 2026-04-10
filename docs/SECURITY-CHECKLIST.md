@@ -1,4 +1,4 @@
-# Checklist de Segurança — FinBot
+# Checklist de Segurança — Personal Finances
 
 ## Base (Obrigatório)
 

@@ -20,18 +20,39 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ── HyperDX Observability ────────────────────────────────────────────────────
+# ── SigNoz Observability (OpenTelemetry) ─────────────────────────────────────
 # Configure OpenTelemetry before the app is created so all auto-instrumentation
-# (httpx, fastapi, supabase) is set up before the first request.
-if settings.hyperdx_api_key:
-    os.environ.setdefault("HYPERDX_API_KEY", settings.hyperdx_api_key)
+# (httpx, supabase) is set up before the first request.
+# FastAPI instrumentation will be applied after app creation.
+if settings.signoz_otlp_endpoint:
     os.environ.setdefault("OTEL_SERVICE_NAME", settings.otel_service_name)
+    os.environ.setdefault("OTEL_EXPORTER_OTLP_ENDPOINT", settings.signoz_otlp_endpoint)
+    os.environ.setdefault("OTEL_TRACES_EXPORTER", "otlp")
+    os.environ.setdefault("OTEL_METRICS_EXPORTER", "otlp")
+    os.environ.setdefault("OTEL_LOGS_EXPORTER", "otlp")
     try:
-        from hyperdx.opentelemetry import configure_opentelemetry
-        configure_opentelemetry()
-        logger.info("HyperDX observability enabled (service=%s)", settings.otel_service_name)
-    except ImportError:
-        logger.warning("hyperdx-opentelemetry not installed — run: pip install hyperdx-opentelemetry && opentelemetry-bootstrap -a install")
+        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+        from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry import trace
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+        resource = Resource.create({"service.name": settings.otel_service_name})
+        tracer_provider = TracerProvider(resource=resource)
+        tracer_provider.add_span_processor(
+            BatchSpanProcessor(
+                OTLPSpanExporter(endpoint=f"{settings.signoz_otlp_endpoint}/v1/traces")
+            )
+        )
+        trace.set_tracer_provider(tracer_provider)
+
+        HTTPXClientInstrumentor().instrument()
+        SQLAlchemyInstrumentor().instrument()
+        logger.info("SigNoz observability enabled (service=%s, endpoint=%s)", settings.otel_service_name, settings.signoz_otlp_endpoint)
+    except ImportError as e:
+        logger.warning("OpenTelemetry packages not installed — run: pip install -r requirements.txt (%s)", e)
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 
@@ -44,11 +65,19 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
 
 
-app = FastAPI(title="FinBot", docs_url=None, redoc_url=None, lifespan=lifespan)
+app = FastAPI(title="Personal Finances", docs_url=None, redoc_url=None, lifespan=lifespan)
 # TODO(security/F-01): Disable OpenAPI schema in production to avoid exposing full API map to unauthenticated users.
 # Add openapi_url=None to the FastAPI constructor above.
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Instrument FastAPI after app creation
+if settings.signoz_otlp_endpoint:
+    try:
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        FastAPIInstrumentor.instrument_app(app)
+    except ImportError:
+        pass
 
 # CORS: only allow requests from the frontend domain
 app.add_middleware(

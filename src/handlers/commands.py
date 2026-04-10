@@ -67,7 +67,7 @@ def _generate_csv(expenses: list) -> bytes:
 
 async def handle_start(chat_id: int) -> None:
     text = (
-        "👋 Hello! I'm <b>FinBot</b>, your expense tracking assistant.\n\n"
+        "👋 Hello! I'm <b>Personal Finances</b>, your expense tracking assistant.\n\n"
         "Send me:\n"
         "• 📷 A photo of a payment receipt\n"
         "• 📄 A PDF invoice\n"
