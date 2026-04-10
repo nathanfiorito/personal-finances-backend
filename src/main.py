@@ -79,11 +79,11 @@ if settings.signoz_otlp_endpoint:
     except ImportError:
         pass
 
-# CORS: only allow requests from the frontend domain
+# CORS: allow requests from all subdomains of nathanfiorito.com.br
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://([a-zA-Z0-9-]+\.)*nathanfiorito\.com\.br",
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_origin_regex=r"https://[a-zA-Z0-9.-]+\.nathanfiorito\.com\.br",
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     allow_credentials=False,
 )
