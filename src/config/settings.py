@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     supabase_service_key: str = ""
 
     # Observability (SigNoz / OpenTelemetry)
-    signoz_otlp_endpoint: str = "https://signoz-otel.nathanfiorito.com.br:4318"
+    signoz_otlp_endpoint: str = "https://signoz-otel.nathanfiorito.com.br"
     otel_service_name: str = "personal-finances-backend"
 
 
