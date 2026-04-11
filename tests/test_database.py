@@ -210,3 +210,50 @@ class TestGetTotalsByCategory:
 
         assert len(result) == 1
         assert result["Saúde"] == Decimal("100.50")
+
+
+class TestTimedDb:
+    @pytest.mark.asyncio
+    async def test_yields_span_with_set_attribute(self):
+        """_timed_db must yield an object whose set_attribute is callable."""
+        async with db_module._timed_db("transactions.select(*)") as span:
+            span.set_attribute("db.rows", 7)  # must not raise
+
+    @pytest.mark.asyncio
+    async def test_propagates_exception_and_reraises(self):
+        with pytest.raises(RuntimeError, match="db exploded"):
+            async with db_module._timed_db("transactions.select(*)"):
+                raise RuntimeError("db exploded")
+
+    @pytest.mark.asyncio
+    async def test_exception_records_on_span(self, mocker):
+        mock_span = MagicMock()
+        mock_ctx = MagicMock()
+        mock_ctx.__enter__.return_value = mock_span
+        mock_ctx.__exit__.return_value = False
+        mocker.patch("src.services.database.tracing.start_span", return_value=mock_ctx)
+
+        with pytest.raises(RuntimeError, match="db exploded"):
+            async with db_module._timed_db("transactions.select(*)"):
+                raise RuntimeError("db exploded")
+
+        mock_span.record_exception.assert_called_once()
+        mock_span.set_status.assert_called_once()
+
+
+class TestDbSpanAttrs:
+    def test_select_with_period(self):
+        result = db_module._db_span_attrs("transactions.select(*).period(2024-01-01,2024-01-31)")
+        assert result == {"db.table": "transactions", "db.operation": "select"}
+
+    def test_insert(self):
+        result = db_module._db_span_attrs("transactions.insert")
+        assert result == {"db.table": "transactions", "db.operation": "insert"}
+
+    def test_update_with_args(self):
+        result = db_module._db_span_attrs("categories.update(is_active=False).eq(id=5)")
+        assert result == {"db.table": "categories", "db.operation": "update"}
+
+    def test_no_dot_falls_back_to_query(self):
+        result = db_module._db_span_attrs("unknown_operation")
+        assert result == {"db.table": "unknown_operation", "db.operation": "query"}

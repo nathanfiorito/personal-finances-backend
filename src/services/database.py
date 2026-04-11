@@ -8,6 +8,7 @@ from supabase import AsyncClient, acreate_client
 
 from src.config.settings import settings
 from src.models.expense import Expense, ExtractedExpense
+from src.services import tracing
 
 logger = logging.getLogger(__name__)
 
@@ -21,19 +22,36 @@ async def _get_client() -> AsyncClient:
     return _client
 
 
+def _db_span_attrs(operation: str) -> dict[str, str]:
+    """Parse 'table.op(...)' into db.table and db.operation span attributes."""
+    parts = operation.split(".", 1)
+    table = parts[0]
+    op = parts[1].split("(")[0].split(".")[0] if len(parts) > 1 else "query"
+    return {"db.table": table, "db.operation": op}
+
+
 @contextlib.asynccontextmanager
 async def _timed_db(operation: str):
-    """Context manager that logs the duration of a Supabase query."""
+    """Context manager that logs and traces the duration of a Supabase query.
+
+    Yields the span so callers can set extra attributes (e.g. db.rows).
+    """
     t = time.perf_counter()
-    try:
-        yield
-    finally:
-        logger.info("DB %-45s %.0fms", operation, (time.perf_counter() - t) * 1000)
+    with tracing.start_span(operation, _db_span_attrs(operation)) as span:
+        try:
+            yield span
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(tracing.STATUS_ERROR, str(e))
+            raise
+        finally:
+            logger.info("DB %-45s %.0fms", operation, (time.perf_counter() - t) * 1000)
 
 
 async def _get_category_id(client: AsyncClient, name: str) -> int | None:
-    async with _timed_db("categories.select(id).eq(name)"):
+    async with _timed_db("categories.select(id).eq(name)") as span:
         response = await client.table("categories").select("id").eq("name", name).limit(1).execute()
+        span.set_attribute("db.rows", len(response.data))
     if response.data:
         return response.data[0]["id"]
     return None
@@ -68,7 +86,7 @@ async def save_expense(expense: ExtractedExpense, category: str) -> str:
 
 async def get_recent_expenses(limit: int = 3) -> list[Expense]:
     client = await _get_client()
-    async with _timed_db(f"transactions.select(*).order(created_at).limit({limit})"):
+    async with _timed_db(f"transactions.select(*).order(created_at).limit({limit})") as span:
         response = (
             await client.table("transactions")
             .select("*, categories(name)")
@@ -76,6 +94,7 @@ async def get_recent_expenses(limit: int = 3) -> list[Expense]:
             .limit(limit)
             .execute()
         )
+        span.set_attribute("db.rows", len(response.data))
     return [_parse_expense_row(row) for row in response.data]
 
 
@@ -85,7 +104,7 @@ async def get_expenses_by_period(
     transaction_type: str | None = None,
 ) -> list[Expense]:
     client = await _get_client()
-    async with _timed_db(f"transactions.select(*).period({start},{end})"):
+    async with _timed_db(f"transactions.select(*).period({start},{end})") as span:
         query = (
             client.table("transactions")
             .select("*, categories(name)")
@@ -95,6 +114,7 @@ async def get_expenses_by_period(
         if transaction_type is not None:
             query = query.eq("transaction_type", transaction_type)
         response = await query.order("date").execute()
+        span.set_attribute("db.rows", len(response.data))
     return [_parse_expense_row(row) for row in response.data]
 
 
@@ -106,7 +126,7 @@ async def add_category(name: str) -> None:
 
 async def get_active_categories() -> list[str]:
     client = await _get_client()
-    async with _timed_db("categories.select(name).eq(is_active=True)"):
+    async with _timed_db("categories.select(name).eq(is_active=True)") as span:
         response = (
             await client.table("categories")
             .select("name")
@@ -114,6 +134,7 @@ async def get_active_categories() -> list[str]:
             .order("name")
             .execute()
         )
+        span.set_attribute("db.rows", len(response.data))
     return [row["name"] for row in response.data]
 
 
@@ -149,15 +170,16 @@ async def get_expenses_paginated(
         query = query.eq("transaction_type", transaction_type)
     offset = (page - 1) * page_size
     query = query.order("date", desc=True).range(offset, offset + page_size - 1)
-    async with _timed_db(f"transactions.select(*).paginated(page={page},size={page_size})"):
+    async with _timed_db(f"transactions.select(*).paginated(page={page},size={page_size})") as span:
         response = await query.execute()
+        span.set_attribute("db.rows", len(response.data))
     total = response.count or 0
     return [_parse_expense_row(row) for row in response.data], total
 
 
 async def get_expense_by_id(expense_id: str) -> Expense | None:
     client = await _get_client()
-    async with _timed_db(f"transactions.select(*).eq(id={expense_id[:8]}…)"):
+    async with _timed_db(f"transactions.select(*).eq(id={expense_id[:8]}…)") as span:
         response = (
             await client.table("transactions")
             .select("*, categories(name)")
@@ -165,6 +187,7 @@ async def get_expense_by_id(expense_id: str) -> Expense | None:
             .limit(1)
             .execute()
         )
+        span.set_attribute("db.rows", len(response.data))
     if not response.data:
         return None
     return _parse_expense_row(response.data[0])
@@ -212,7 +235,7 @@ async def delete_expense(expense_id: str) -> bool:
 
 async def get_all_categories() -> list[dict]:
     client = await _get_client()
-    async with _timed_db("categories.select(id,name,is_active).eq(is_active=True)"):
+    async with _timed_db("categories.select(id,name,is_active).eq(is_active=True)") as span:
         response = (
             await client.table("categories")
             .select("id, name, is_active")
@@ -220,6 +243,7 @@ async def get_all_categories() -> list[dict]:
             .order("name")
             .execute()
         )
+        span.set_attribute("db.rows", len(response.data))
     return response.data
 
 
