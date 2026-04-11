@@ -229,8 +229,8 @@ class TestTimedDb:
     async def test_exception_records_on_span(self, mocker):
         mock_span = MagicMock()
         mock_ctx = MagicMock()
-        mock_ctx.__enter__ = MagicMock(return_value=mock_span)
-        mock_ctx.__exit__ = MagicMock(return_value=False)
+        mock_ctx.__enter__.return_value = mock_span
+        mock_ctx.__exit__.return_value = False
         mocker.patch("src.services.database.tracing.start_span", return_value=mock_ctx)
 
         with pytest.raises(RuntimeError, match="db exploded"):
@@ -239,3 +239,21 @@ class TestTimedDb:
 
         mock_span.record_exception.assert_called_once()
         mock_span.set_status.assert_called_once()
+
+
+class TestDbSpanAttrs:
+    def test_select_with_period(self):
+        result = db_module._db_span_attrs("transactions.select(*).period(2024-01-01,2024-01-31)")
+        assert result == {"db.table": "transactions", "db.operation": "select"}
+
+    def test_insert(self):
+        result = db_module._db_span_attrs("transactions.insert")
+        assert result == {"db.table": "transactions", "db.operation": "insert"}
+
+    def test_update_with_args(self):
+        result = db_module._db_span_attrs("categories.update(is_active=False).eq(id=5)")
+        assert result == {"db.table": "categories", "db.operation": "update"}
+
+    def test_no_dot_falls_back_to_query(self):
+        result = db_module._db_span_attrs("unknown_operation")
+        assert result == {"db.table": "unknown_operation", "db.operation": "query"}

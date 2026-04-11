@@ -29,7 +29,9 @@ class _NoopSpan:
 def start_span(name: str, attributes: dict | None = None) -> Iterator[_NoopSpan | Any]:
     """
     Context manager that creates a child OTel span when tracing is configured,
-    or yields a _NoopSpan otherwise. Always safe to call span.set_attribute() etc.
+    or yields a _NoopSpan when the opentelemetry package is not installed.
+    When OTel is installed but not configured (no SIGNOZ_OTLP_ENDPOINT), OTel's own
+    NonRecordingSpan is yielded instead — both are safe no-ops for callers.
 
     get_tracer() is called lazily here (not at import time) so the global provider
     set up in main.py is always already initialized before any span is created.

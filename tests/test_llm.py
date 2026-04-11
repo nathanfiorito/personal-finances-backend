@@ -36,8 +36,8 @@ class TestChatCompletionSpans:
 
         mock_span = MagicMock()
         mock_ctx = MagicMock()
-        mock_ctx.__enter__ = MagicMock(return_value=mock_span)
-        mock_ctx.__exit__ = MagicMock(return_value=False)
+        mock_ctx.__enter__.return_value = mock_span
+        mock_ctx.__exit__.return_value = False
         mock_start_span = mocker.patch("src.services.llm.tracing.start_span", return_value=mock_ctx)
 
         await llm_module.chat_completion("anthropic/claude-haiku-4-5", [{"role": "user", "content": "hi"}])
@@ -52,8 +52,8 @@ class TestChatCompletionSpans:
 
         mock_span = MagicMock()
         mock_ctx = MagicMock()
-        mock_ctx.__enter__ = MagicMock(return_value=mock_span)
-        mock_ctx.__exit__ = MagicMock(return_value=False)
+        mock_ctx.__enter__.return_value = mock_span
+        mock_ctx.__exit__.return_value = False
         mocker.patch("src.services.llm.tracing.start_span", return_value=mock_ctx)
 
         await llm_module.chat_completion("anthropic/claude-haiku-4-5", [{"role": "user", "content": "hi"}])
@@ -70,8 +70,8 @@ class TestChatCompletionSpans:
 
         mock_span = MagicMock()
         mock_ctx = MagicMock()
-        mock_ctx.__enter__ = MagicMock(return_value=mock_span)
-        mock_ctx.__exit__ = MagicMock(return_value=False)
+        mock_ctx.__enter__.return_value = mock_span
+        mock_ctx.__exit__.return_value = False
         mocker.patch("src.services.llm.tracing.start_span", return_value=mock_ctx)
 
         with pytest.raises(LLMTimeoutError):
@@ -88,8 +88,8 @@ class TestChatCompletionSpans:
 
         mock_span = MagicMock()
         mock_ctx = MagicMock()
-        mock_ctx.__enter__ = MagicMock(return_value=mock_span)
-        mock_ctx.__exit__ = MagicMock(return_value=False)
+        mock_ctx.__enter__.return_value = mock_span
+        mock_ctx.__exit__.return_value = False
         mocker.patch("src.services.llm.tracing.start_span", return_value=mock_ctx)
 
         result = await llm_module.chat_completion("anthropic/claude-haiku-4-5", [{"role": "user", "content": "hi"}])
@@ -109,8 +109,8 @@ class TestChatCompletionSpans:
 
         mock_span = MagicMock()
         mock_ctx = MagicMock()
-        mock_ctx.__enter__ = MagicMock(return_value=mock_span)
-        mock_ctx.__exit__ = MagicMock(return_value=False)
+        mock_ctx.__enter__.return_value = mock_span
+        mock_ctx.__exit__.return_value = False
         mocker.patch("src.services.llm.tracing.start_span", return_value=mock_ctx)
 
         result = await llm_module.chat_completion(
