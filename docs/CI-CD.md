@@ -25,19 +25,21 @@ The `preflight` job detects when a `push` fires on a `feature/**` branch that al
 ### Jobs
 
 ```
-push feature (no PR)    → preflight → lint → test → docker-build → auto-pr
-push feature (PR open)  → preflight [skip=true] → (all skipped)
-push develop or main    → preflight → lint → test → docker-build
-pull_request            → preflight → lint → test → docker-build
+push feature (no PR)       → preflight → lint → test → docker-build → auto-pr (→ develop)
+push feature (PR open)     → preflight [skip=true] → (all skipped)
+push develop (no PR)       → preflight → lint → test → docker-build → auto-pr (→ main)
+push develop (PR open)     → preflight [skip=true] → (all skipped)
+push main                  → preflight → lint → test → docker-build
+pull_request               → preflight → lint → test → docker-build
 ```
 
 | Job | Trigger | Purpose |
 |---|---|---|
-| `preflight` | Always | Checks if push has an open PR; sets `skip` output |
+| `preflight` | Always | Checks if push has an open PR for the branch; sets `skip` output |
 | `lint` | When not skipped | `ruff check src/` |
 | `test` | When not skipped | `pytest tests/ -v` |
 | `docker-build` | When not skipped | `docker build .` — validates the image builds |
-| `auto-pr` | Push only, after CI passes | Opens PR to `develop` if one doesn't exist yet |
+| `auto-pr` | Push on `feature/**` or `develop`, after CI passes | Opens PR to `develop` (feature) or `main` (develop) if one doesn't exist yet |
 
 ---
 
