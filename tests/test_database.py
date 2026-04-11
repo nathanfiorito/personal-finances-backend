@@ -210,3 +210,17 @@ class TestGetTotalsByCategory:
 
         assert len(result) == 1
         assert result["Saúde"] == Decimal("100.50")
+
+
+class TestTimedDb:
+    @pytest.mark.asyncio
+    async def test_yields_span_with_set_attribute(self):
+        """_timed_db must yield an object whose set_attribute is callable."""
+        async with db_module._timed_db("transactions.select(*)") as span:
+            span.set_attribute("db.rows", 7)  # must not raise
+
+    @pytest.mark.asyncio
+    async def test_propagates_exception_and_reraises(self):
+        with pytest.raises(RuntimeError, match="db exploded"):
+            async with db_module._timed_db("transactions.select(*)"):
+                raise RuntimeError("db exploded")
