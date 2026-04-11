@@ -27,16 +27,16 @@ logger = logging.getLogger(__name__)
 if settings.signoz_otlp_endpoint:
     os.environ.setdefault("OTEL_SERVICE_NAME", settings.otel_service_name)
     try:
-        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-        from opentelemetry.sdk.resources import Resource
         from opentelemetry import trace
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-        from opentelemetry.sdk.trace import TracerProvider, SpanProcessor
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
         from opentelemetry._logs import set_logger_provider
+        from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
         from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
         from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-        from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
         def _httpx_request_hook(span, request) -> None:
             """Rename generic httpx spans to include service + path for readability in SigNoz."""
@@ -93,12 +93,12 @@ if settings.signoz_otlp_endpoint:
                 OTLPLogExporter(endpoint=f"{settings.signoz_otlp_endpoint}/v1/logs")
             )
         )
-        logging.getLogger().addHandler(LoggingHandler(level=logging.INFO, logger_provider=logger_provider))
+        logging.getLogger().addHandler(LoggingHandler(level=logging.INFO, logger_provider=logger_provider))  # noqa: E501
 
         HTTPXClientInstrumentor().instrument(request_hook=_httpx_request_hook)
-        logger.info("SigNoz observability enabled (service=%s, endpoint=%s)", settings.otel_service_name, settings.signoz_otlp_endpoint)
+        logger.info("SigNoz observability enabled (service=%s, endpoint=%s)", settings.otel_service_name, settings.signoz_otlp_endpoint)  # noqa: E501
     except ImportError as e:
-        logger.warning("OpenTelemetry packages not installed — run: pip install -r requirements.txt (%s)", e)
+        logger.warning("OpenTelemetry packages not installed — run: pip install -r requirements.txt (%s)", e)  # noqa: E501
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 
@@ -112,7 +112,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Personal Finances", docs_url=None, redoc_url=None, lifespan=lifespan)
-# TODO(security/F-01): Disable OpenAPI schema in production to avoid exposing full API map to unauthenticated users.
+# TODO(security/F-01): Disable OpenAPI schema in production to avoid exposing full API map to unauthenticated users.  # noqa: E501
 # Add openapi_url=None to the FastAPI constructor above.
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

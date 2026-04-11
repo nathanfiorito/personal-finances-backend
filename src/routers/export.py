@@ -10,7 +10,7 @@ from src.services import database
 
 router = APIRouter(prefix="/api/export", tags=["export"])
 
-_CSV_COLUMNS = ["id", "date", "establishment", "description", "category", "amount", "tax_id", "entry_type", "confidence", "created_at"]
+_CSV_COLUMNS = ["id", "date", "establishment", "description", "category", "amount", "tax_id", "entry_type", "confidence", "created_at"]  # noqa: E501
 
 
 @router.get("/csv")

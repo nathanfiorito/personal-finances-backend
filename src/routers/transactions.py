@@ -42,7 +42,7 @@ class TransactionCreate(BaseModel):
 
 class TransactionUpdate(BaseModel):
     amount: Decimal | None = None
-    date: Optional[date] = None
+    date: Optional[date] = None  # noqa: UP045
     establishment: str | None = None
     description: str | None = None
     category_id: int | None = None
