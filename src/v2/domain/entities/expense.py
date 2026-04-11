@@ -1,19 +1,19 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ExtractedExpense(BaseModel):
     """Expense data extracted from a receipt by the LLM. Not yet persisted."""
 
     amount: Decimal
-    date: date | None = None
-    establishment: str | None = None
-    description: str | None = None
-    tax_id: str | None = None
+    date: Any = None
+    establishment: Any = None
+    description: Any = None
+    tax_id: Any = None
     entry_type: Literal["image", "text", "pdf"]
     transaction_type: Literal["income", "outcome"] = "outcome"
     confidence: float = Field(ge=0.0, le=1.0, default=0.5)
@@ -29,7 +29,7 @@ class ExtractedExpense(BaseModel):
 
     @field_validator("tax_id")
     @classmethod
-    def format_tax_id(cls, v: str | None) -> str | None:
+    def format_tax_id(cls, v: Any) -> Any:
         if v is None:
             return None
         digits = "".join(c for c in v if c.isdigit())
@@ -44,12 +44,12 @@ class Expense(BaseModel):
     id: UUID
     amount: Decimal
     date: date
-    establishment: str | None
-    description: str | None
+    establishment: Any
+    description: Any
     category_id: int
     category: str
-    tax_id: str | None
+    tax_id: Any
     entry_type: str
     transaction_type: Literal["income", "outcome"]
-    confidence: float | None
+    confidence: Any
     created_at: datetime
