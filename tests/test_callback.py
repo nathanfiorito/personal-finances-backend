@@ -102,7 +102,7 @@ class TestConfirm:
         await handle_callback(_callback("confirm"))
 
         mock_answer.assert_called_once()
-        assert "expirada" in mock_answer.call_args[0][1].lower()
+        assert "expired" in mock_answer.call_args[0][1].lower()
 
     @pytest.mark.asyncio
     async def test_db_error_sends_error_message(self, with_pending, mock_no_duplicate, mocker):
@@ -221,7 +221,7 @@ class TestForceConfirm:
 
         await handle_callback(_callback("force_confirm"))
 
-        assert "expirada" in mock_answer.call_args[0][1].lower()
+        assert "expired" in mock_answer.call_args[0][1].lower()
 
 
 # --- Cancel ---
@@ -243,7 +243,7 @@ class TestCancel:
 
         await handle_callback(_callback("cancel"))
 
-        assert "cancelada" in mock_edit.call_args[0][2].lower()
+        assert "canceled" in mock_edit.call_args[0][2].lower()
 
 
 # --- Edit category ---

@@ -2,7 +2,7 @@ import pytest
 from datetime import date, timedelta
 from unittest.mock import AsyncMock, patch
 
-from src.handlers.commands import dispatch_command, handle_relatorio, handle_exportar, handle_categorias, _parse_periodo, _generate_csv, _handle_categorias_add
+from src.handlers.commands import dispatch_command, handle_report, handle_export, handle_categories, _parse_period, _generate_csv, _handle_category_add
 
 
 CHAT_ID = 12345
@@ -13,60 +13,60 @@ def mock_telegram(mocker):
     mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
 
 
-class TestParsePeriodo:
+class TestParsePeriod:
     TODAY = date(2025, 4, 6)
 
     def test_empty_args_returns_current_month(self):
-        start, end = _parse_periodo([], self.TODAY)
+        start, end = _parse_period([], self.TODAY)
         assert start == date(2025, 4, 1)
         assert end == self.TODAY
 
     def test_mes_returns_current_month(self):
-        start, end = _parse_periodo(["mes"], self.TODAY)
+        start, end = _parse_period(["mes"], self.TODAY)
         assert start == date(2025, 4, 1)
         assert end == self.TODAY
 
     def test_semana_returns_last_7_days(self):
-        start, end = _parse_periodo(["semana"], self.TODAY)
+        start, end = _parse_period(["semana"], self.TODAY)
         assert (end - start).days == 7
         assert end == self.TODAY
 
     def test_anterior_returns_previous_month(self):
-        start, end = _parse_periodo(["anterior"], self.TODAY)
+        start, end = _parse_period(["anterior"], self.TODAY)
         assert start == date(2025, 3, 1)
         assert end == date(2025, 3, 31)
 
     def test_anterior_in_january_wraps_to_december(self):
-        start, end = _parse_periodo(["anterior"], date(2025, 1, 15))
+        start, end = _parse_period(["anterior"], date(2025, 1, 15))
         assert start == date(2024, 12, 1)
         assert end == date(2024, 12, 31)
 
     def test_mm_aaaa_past_month(self):
-        start, end = _parse_periodo(["03/2025"], self.TODAY)
+        start, end = _parse_period(["03/2025"], self.TODAY)
         assert start == date(2025, 3, 1)
         assert end == date(2025, 3, 31)
 
     def test_mm_aaaa_current_month_caps_at_today(self):
-        start, end = _parse_periodo(["04/2025"], self.TODAY)
+        start, end = _parse_period(["04/2025"], self.TODAY)
         assert start == date(2025, 4, 1)
         assert end == self.TODAY
 
     def test_mm_aaaa_february_leap_year(self):
-        start, end = _parse_periodo(["02/2024"], self.TODAY)
+        start, end = _parse_period(["02/2024"], self.TODAY)
         assert end == date(2024, 2, 29)
 
     def test_mm_aaaa_february_non_leap_year(self):
-        start, end = _parse_periodo(["02/2025"], self.TODAY)
+        start, end = _parse_period(["02/2025"], self.TODAY)
         assert end == date(2025, 2, 28)
 
     def test_invalid_month_returns_none(self):
-        assert _parse_periodo(["13/2025"], self.TODAY) is None
+        assert _parse_period(["13/2025"], self.TODAY) is None
 
     def test_invalid_format_returns_none(self):
-        assert _parse_periodo(["março"], self.TODAY) is None
+        assert _parse_period(["março"], self.TODAY) is None
 
     def test_invalid_year_returns_none(self):
-        assert _parse_periodo(["01/1999"], self.TODAY) is None
+        assert _parse_period(["01/1999"], self.TODAY) is None
 
 
 class TestDispatchCommand:
@@ -78,19 +78,19 @@ class TestDispatchCommand:
 
     @pytest.mark.asyncio
     async def test_ajuda_command(self, mocker):
-        mock_ajuda = mocker.patch("src.handlers.commands.handle_ajuda", new_callable=AsyncMock)
+        mock_help = mocker.patch("src.handlers.commands.handle_help", new_callable=AsyncMock)
         await dispatch_command(CHAT_ID, "/ajuda")
-        mock_ajuda.assert_called_once_with(CHAT_ID)
+        mock_help.assert_called_once_with(CHAT_ID)
 
     @pytest.mark.asyncio
     async def test_relatorio_command_passes_args(self, mocker):
-        mock_rel = mocker.patch("src.handlers.commands.handle_relatorio", new_callable=AsyncMock)
+        mock_rel = mocker.patch("src.handlers.commands.handle_report", new_callable=AsyncMock)
         await dispatch_command(CHAT_ID, "/relatorio semana")
         mock_rel.assert_called_once_with(CHAT_ID, ["semana"])
 
     @pytest.mark.asyncio
     async def test_relatorio_no_args(self, mocker):
-        mock_rel = mocker.patch("src.handlers.commands.handle_relatorio", new_callable=AsyncMock)
+        mock_rel = mocker.patch("src.handlers.commands.handle_report", new_callable=AsyncMock)
         await dispatch_command(CHAT_ID, "/relatorio")
         mock_rel.assert_called_once_with(CHAT_ID, [])
 
@@ -107,18 +107,18 @@ class TestDispatchCommand:
         mock_start.assert_called_once_with(CHAT_ID)
 
 
-class TestHandleRelatorio:
+class TestHandleReport:
     @pytest.mark.asyncio
     async def test_semana_calls_generate_with_7_days(self, mocker):
         mock_generate = mocker.patch("src.agents.reporter.generate_report", new_callable=AsyncMock, return_value="relatório")
-        await handle_relatorio(CHAT_ID, ["semana"])
+        await handle_report(CHAT_ID, ["semana"])
         start, end = mock_generate.call_args[0]
         assert (end - start).days == 7
 
     @pytest.mark.asyncio
     async def test_mes_starts_on_first(self, mocker):
         mock_generate = mocker.patch("src.agents.reporter.generate_report", new_callable=AsyncMock, return_value="relatório")
-        await handle_relatorio(CHAT_ID, ["mes"])
+        await handle_report(CHAT_ID, ["mes"])
         start, end = mock_generate.call_args[0]
         assert start.day == 1
         assert end == date.today()
@@ -126,7 +126,7 @@ class TestHandleRelatorio:
     @pytest.mark.asyncio
     async def test_anterior_calls_previous_month(self, mocker):
         mock_generate = mocker.patch("src.agents.reporter.generate_report", new_callable=AsyncMock, return_value="relatório")
-        await handle_relatorio(CHAT_ID, ["anterior"])
+        await handle_report(CHAT_ID, ["anterior"])
         start, end = mock_generate.call_args[0]
         today = date.today()
         expected_month = today.month - 1 if today.month > 1 else 12
@@ -137,7 +137,7 @@ class TestHandleRelatorio:
     @pytest.mark.asyncio
     async def test_mm_aaaa_calls_correct_period(self, mocker):
         mock_generate = mocker.patch("src.agents.reporter.generate_report", new_callable=AsyncMock, return_value="relatório")
-        await handle_relatorio(CHAT_ID, ["01/2025"])
+        await handle_report(CHAT_ID, ["01/2025"])
         start, end = mock_generate.call_args[0]
         assert start == date(2025, 1, 1)
         assert end == date(2025, 1, 31)
@@ -146,14 +146,14 @@ class TestHandleRelatorio:
     async def test_invalid_period_sends_error(self, mocker):
         mock_generate = mocker.patch("src.agents.reporter.generate_report", new_callable=AsyncMock)
         mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
-        await handle_relatorio(CHAT_ID, ["13/2025"])
+        await handle_report(CHAT_ID, ["13/2025"])
         mock_generate.assert_not_called()
-        assert "inválido" in mock_send.call_args[0][1].lower()
+        assert "invalid" in mock_send.call_args[0][1].lower()
 
     @pytest.mark.asyncio
     async def test_default_is_current_month(self, mocker):
         mock_generate = mocker.patch("src.agents.reporter.generate_report", new_callable=AsyncMock, return_value="relatório")
-        await handle_relatorio(CHAT_ID, [])
+        await handle_report(CHAT_ID, [])
         start, end = mock_generate.call_args[0]
         assert start.day == 1
 
@@ -161,12 +161,12 @@ class TestHandleRelatorio:
     async def test_sends_report_message(self, mocker):
         mocker.patch("src.agents.reporter.generate_report", new_callable=AsyncMock, return_value="📊 Relatório aqui")
         mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
-        await handle_relatorio(CHAT_ID, ["mes"])
+        await handle_report(CHAT_ID, ["mes"])
         assert mock_send.call_count == 2
         assert "📊 Relatório aqui" in mock_send.call_args[0][1]
 
 
-class TestHandleExportar:
+class TestHandleExport:
     @pytest.mark.asyncio
     async def test_sends_csv_document(self, mocker):
         from datetime import datetime
@@ -183,7 +183,7 @@ class TestHandleExportar:
         mock_doc = mocker.patch("src.services.telegram.send_document", new_callable=AsyncMock)
         mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
 
-        await handle_exportar(CHAT_ID, ["03/2025"])
+        await handle_export(CHAT_ID, ["03/2025"])
 
         mock_doc.assert_called_once()
         filename = mock_doc.call_args[0][2]
@@ -195,20 +195,20 @@ class TestHandleExportar:
         mocker.patch("src.services.database.get_expenses_by_period", new_callable=AsyncMock, return_value=[])
         mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
 
-        await handle_exportar(CHAT_ID, ["03/2025"])
+        await handle_export(CHAT_ID, ["03/2025"])
 
         mock_send.assert_called()
-        assert "Nenhuma" in mock_send.call_args[0][1]
+        assert "No expenses" in mock_send.call_args[0][1]
 
     @pytest.mark.asyncio
     async def test_invalid_period_sends_error(self, mocker):
         mock_db = mocker.patch("src.services.database.get_expenses_by_period", new_callable=AsyncMock)
         mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
 
-        await handle_exportar(CHAT_ID, ["13/2025"])
+        await handle_export(CHAT_ID, ["13/2025"])
 
         mock_db.assert_not_called()
-        assert "inválido" in mock_send.call_args[0][1].lower()
+        assert "invalid" in mock_send.call_args[0][1].lower()
 
 
 class TestGenerateCsv:
@@ -243,7 +243,7 @@ class TestGenerateCsv:
         assert "45,90" in result
 
 
-class TestHandleCategorias:
+class TestHandleCategories:
     @pytest.mark.asyncio
     async def test_lists_categories_from_db(self, mocker):
         mocker.patch(
@@ -253,7 +253,7 @@ class TestHandleCategorias:
         )
         mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
 
-        await handle_categorias(CHAT_ID, [])
+        await handle_categories(CHAT_ID, [])
 
         text = mock_send.call_args[0][1]
         assert "Alimentação" in text
@@ -268,7 +268,7 @@ class TestHandleCategorias:
         )
         mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
 
-        await handle_categorias(CHAT_ID, [])
+        await handle_categories(CHAT_ID, [])
 
         text = mock_send.call_args[0][1]
         assert "Outros" in text
@@ -278,19 +278,19 @@ class TestHandleCategorias:
         mocker.patch("src.services.database.get_active_categories", new_callable=AsyncMock, return_value=["Alimentação"])
         mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
 
-        await handle_categorias(CHAT_ID, [])
+        await handle_categories(CHAT_ID, [])
 
         assert "add" in mock_send.call_args[0][1].lower()
 
 
-class TestHandleCategoriasAdd:
+class TestHandleCategoryAdd:
     @pytest.mark.asyncio
     async def test_adds_category_successfully(self, mocker):
         mock_add = mocker.patch("src.services.database.add_category", new_callable=AsyncMock)
         mocker.patch("src.agents.categorizer.invalidate_cache")
         mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
 
-        await _handle_categorias_add(CHAT_ID, ["Investimentos"])
+        await _handle_category_add(CHAT_ID, ["Investimentos"])
 
         mock_add.assert_called_once_with("Investimentos")
         assert "Investimentos" in mock_send.call_args[0][1]
@@ -302,7 +302,7 @@ class TestHandleCategoriasAdd:
         mock_invalidate = mocker.patch("src.agents.categorizer.invalidate_cache")
         mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
 
-        await _handle_categorias_add(CHAT_ID, ["Investimentos"])
+        await _handle_category_add(CHAT_ID, ["Investimentos"])
 
         mock_invalidate.assert_called_once()
 
@@ -311,10 +311,10 @@ class TestHandleCategoriasAdd:
         mock_add = mocker.patch("src.services.database.add_category", new_callable=AsyncMock)
         mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
 
-        await _handle_categorias_add(CHAT_ID, [])
+        await _handle_category_add(CHAT_ID, [])
 
         mock_add.assert_not_called()
-        assert "Informe" in mock_send.call_args[0][1]
+        assert "Provide" in mock_send.call_args[0][1]
 
     @pytest.mark.asyncio
     async def test_duplicate_category_shows_warning(self, mocker):
@@ -325,9 +325,9 @@ class TestHandleCategoriasAdd:
         )
         mock_send = mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
 
-        await _handle_categorias_add(CHAT_ID, ["Alimentação"])
+        await _handle_category_add(CHAT_ID, ["Alimentação"])
 
-        assert "já existe" in mock_send.call_args[0][1]
+        assert "already exists" in mock_send.call_args[0][1]
 
     @pytest.mark.asyncio
     async def test_multi_word_category_name(self, mocker):
@@ -335,6 +335,6 @@ class TestHandleCategoriasAdd:
         mocker.patch("src.agents.categorizer.invalidate_cache")
         mocker.patch("src.handlers.commands.telegram.send_message", new_callable=AsyncMock)
 
-        await _handle_categorias_add(CHAT_ID, ["Assinaturas", "Digitais"])
+        await _handle_category_add(CHAT_ID, ["Assinaturas", "Digitais"])
 
         mock_add.assert_called_once_with("Assinaturas Digitais")

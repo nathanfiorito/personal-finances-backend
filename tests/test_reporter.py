@@ -105,7 +105,7 @@ class TestGenerateReport:
         result = await generate_report(START, END)
 
         assert "100,00" in result
-        assert "Não foi possível gerar o insight" in result
+        assert "Unable to generate insight" in result
 
     @pytest.mark.asyncio
     async def test_semana_label_in_report(self, mock_insight, mocker):
