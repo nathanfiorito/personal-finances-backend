@@ -31,19 +31,57 @@ if settings.signoz_otlp_endpoint:
         from opentelemetry.sdk.resources import Resource
         from opentelemetry import trace
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace import TracerProvider, SpanProcessor
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
         from opentelemetry._logs import set_logger_provider
         from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
         from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
         from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 
+        def _httpx_request_hook(span, request) -> None:
+            """Rename generic httpx spans to include service + path for readability in SigNoz."""
+            host = request.url.host
+            path = request.url.path
+            if "supabase.co" in host:
+                prefix = "supabase"
+            elif "openrouter.ai" in host:
+                prefix = "openrouter"
+            elif "api.telegram.org" in host:
+                prefix = "telegram"
+            else:
+                prefix = host
+            span.update_name(f"{prefix} {request.method} {path}")
+
+        class _FilteringSpanProcessor(SpanProcessor):
+            """Wraps a SpanProcessor and drops matching spans before export."""
+
+            def __init__(self, inner: SpanProcessor, should_drop) -> None:
+                self._inner = inner
+                self._should_drop = should_drop
+
+            def on_start(self, span, parent_context=None) -> None:
+                pass  # BatchSpanProcessor.on_start is a no-op; skip to avoid overhead
+
+            def on_end(self, span) -> None:
+                if not self._should_drop(span):
+                    self._inner.on_end(span)
+
+            def shutdown(self) -> None:
+                self._inner.shutdown()
+
+            def force_flush(self, timeout_millis: int = 30000) -> bool:
+                return self._inner.force_flush(timeout_millis)
+
         resource = Resource.create({"service.name": settings.otel_service_name})
 
         tracer_provider = TracerProvider(resource=resource)
         tracer_provider.add_span_processor(
-            BatchSpanProcessor(
-                OTLPSpanExporter(endpoint=f"{settings.signoz_otlp_endpoint}/v1/traces")
+            _FilteringSpanProcessor(
+                BatchSpanProcessor(
+                    OTLPSpanExporter(endpoint=f"{settings.signoz_otlp_endpoint}/v1/traces")
+                ),
+                # Drop ASGI response-chunk spans — they add noise without latency insight
+                should_drop=lambda span: span.name.endswith(" http send"),
             )
         )
         trace.set_tracer_provider(tracer_provider)
@@ -57,7 +95,7 @@ if settings.signoz_otlp_endpoint:
         )
         logging.getLogger().addHandler(LoggingHandler(level=logging.INFO, logger_provider=logger_provider))
 
-        HTTPXClientInstrumentor().instrument()
+        HTTPXClientInstrumentor().instrument(request_hook=_httpx_request_hook)
         logger.info("SigNoz observability enabled (service=%s, endpoint=%s)", settings.otel_service_name, settings.signoz_otlp_endpoint)
     except ImportError as e:
         logger.warning("OpenTelemetry packages not installed — run: pip install -r requirements.txt (%s)", e)
