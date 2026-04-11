@@ -17,16 +17,18 @@ Branch strategy: `feature/**` → `develop` → `main`
 | Event | Condition |
 |---|---|
 | `push` to `feature/**` | Runs only if no open PR exists for the branch |
+| `push` to `develop` or `main` | Always runs — verifies the branch after a merge |
 | `pull_request` targeting `develop` or `main` | Runs on every push once a PR is open |
 
-The `preflight` job detects when a `push` fires on a branch that already has an open PR and sets `skip=true`, so CI always runs exactly once per commit — via `pull_request` once the PR exists, via `push` before it does.
+The `preflight` job detects when a `push` fires on a `feature/**` branch that already has an open PR and sets `skip=true`, so CI always runs exactly once per feature commit — via `pull_request` once the PR exists, via `push` before it does. Pushes to `develop` and `main` are never skipped.
 
 ### Jobs
 
 ```
-push (no PR)    → preflight → lint → test → docker-build → auto-pr
-push (PR open)  → preflight [skip=true] → (all skipped)
-pull_request    → preflight → lint → test → docker-build
+push feature (no PR)    → preflight → lint → test → docker-build → auto-pr
+push feature (PR open)  → preflight [skip=true] → (all skipped)
+push develop or main    → preflight → lint → test → docker-build
+pull_request            → preflight → lint → test → docker-build
 ```
 
 | Job | Trigger | Purpose |
