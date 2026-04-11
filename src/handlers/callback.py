@@ -33,10 +33,10 @@ async def _do_save(chat_id: int, message_id: int, pending) -> None:
         pending_store.delete(chat_id)
 
     if saved:
-        amount_fmt = f"R$ {pending.extracted.amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        amount_fmt = f"R$ {pending.extracted.amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")  # noqa: E501
         await telegram.send_message(
             chat_id,
-            f"✅ Expense of <b>{amount_fmt}</b> in <b>{pending.category}</b> registered successfully!",
+            f"✅ Expense of <b>{amount_fmt}</b> in <b>{pending.category}</b> registered successfully!",  # noqa: E501
         )
     else:
         await telegram.send_message(chat_id, "❌ Error saving expense. Try again.")

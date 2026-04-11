@@ -33,7 +33,7 @@ async def create_category(body: CategoryCreate, _user=Depends(get_current_user))
         return await database.create_category_full(body.name)
     except Exception as e:
         if "duplicate" in str(e).lower() or "unique" in str(e).lower():
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Category already exists")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Category already exists")  # noqa: E501
         raise
 
 
