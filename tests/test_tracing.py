@@ -42,6 +42,13 @@ class TestStartSpan:
             with start_span("test.op"):
                 raise ValueError("test error")
 
-    def test_status_error_is_importable(self):
+    def test_start_span_yields_noop_span_when_otel_absent(self, monkeypatch):
+        import src.services.tracing as tracing_module
+        monkeypatch.setattr(tracing_module, "_HAS_OTEL", False)
+        with tracing_module.start_span("test.op") as span:
+            assert isinstance(span, tracing_module._NoopSpan)
+
+    def test_status_error_is_otel_status_code(self):
+        from opentelemetry.trace import StatusCode
         from src.services.tracing import STATUS_ERROR
-        assert STATUS_ERROR is not None
+        assert STATUS_ERROR is StatusCode.ERROR

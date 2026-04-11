@@ -1,5 +1,6 @@
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Generator
+from typing import Any
 
 try:
     from opentelemetry import trace as _trace
@@ -25,7 +26,7 @@ class _NoopSpan:
 
 
 @contextmanager
-def start_span(name: str, attributes: dict | None = None) -> Generator:
+def start_span(name: str, attributes: dict | None = None) -> Iterator[_NoopSpan | Any]:
     """
     Context manager that creates a child OTel span when tracing is configured,
     or yields a _NoopSpan otherwise. Always safe to call span.set_attribute() etc.
