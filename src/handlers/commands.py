@@ -49,7 +49,7 @@ def _parse_period(args: list[str], today: date) -> tuple[date, date] | None:
 
 def _generate_csv(expenses: list) -> bytes:
     output = io.StringIO()
-    fieldnames = ["date", "amount", "establishment", "category", "description", "tax_id", "entry_type"]
+    fieldnames = ["date", "amount", "establishment", "category", "description", "tax_id", "entry_type"]  # noqa: E501
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
     for e in expenses:
@@ -141,7 +141,7 @@ async def handle_export(chat_id: int, args: list[str]) -> None:
 
     csv_bytes = _generate_csv(expenses)
     filename = f"expenses_{start.strftime('%m-%Y')}.csv"
-    caption = f"📎 <b>{len(expenses)} expenses</b> — {start.strftime('%d/%m/%Y')} to {end.strftime('%d/%m/%Y')}"
+    caption = f"📎 <b>{len(expenses)} expenses</b> — {start.strftime('%d/%m/%Y')} to {end.strftime('%d/%m/%Y')}"  # noqa: E501
     await telegram.send_document(chat_id, csv_bytes, filename, caption)
 
 

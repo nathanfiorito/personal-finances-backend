@@ -94,7 +94,7 @@ async def handle_photo(chat_id: int, message: dict) -> None:
     except LLMTimeoutError:
         await telegram.send_message(chat_id, "⏱️ The AI service took too long. Try again.")
     except LLMRateLimitError:
-        await telegram.send_message(chat_id, "⚠️ Too many requests. Wait a few seconds and try again.")
+        await telegram.send_message(chat_id, "⚠️ Too many requests. Wait a few seconds and try again.")  # noqa: E501
     except ExtractionError as e:
         logger.warning("Image extraction failed: %s", e)
         await telegram.send_message(
@@ -117,12 +117,12 @@ async def handle_text(chat_id: int, text: str) -> None:
     except LLMTimeoutError:
         await telegram.send_message(chat_id, "⏱️ The AI service took too long. Try again.")
     except LLMRateLimitError:
-        await telegram.send_message(chat_id, "⚠️ Too many requests. Wait a few seconds and try again.")
+        await telegram.send_message(chat_id, "⚠️ Too many requests. Wait a few seconds and try again.")  # noqa: E501
     except ExtractionError as e:
         logger.warning("Text extraction failed: %s", e)
         await telegram.send_message(
             chat_id,
-            "⚠️ I didn't understand the expense. Try something like: <i>\"spent 50 at the grocery store\"</i>",
+            "⚠️ I didn't understand the expense. Try something like: <i>\"spent 50 at the grocery store\"</i>",  # noqa: E501
         )
     except Exception:
         logger.exception("Unexpected error processing text")
@@ -146,7 +146,7 @@ async def handle_pdf(chat_id: int, document: dict) -> None:
     except LLMTimeoutError:
         await telegram.send_message(chat_id, "⏱️ The AI service took too long. Try again.")
     except LLMRateLimitError:
-        await telegram.send_message(chat_id, "⚠️ Too many requests. Wait a few seconds and try again.")
+        await telegram.send_message(chat_id, "⚠️ Too many requests. Wait a few seconds and try again.")  # noqa: E501
     except ExtractionError as e:
         logger.warning("PDF extraction failed: %s", e)
         await telegram.send_message(

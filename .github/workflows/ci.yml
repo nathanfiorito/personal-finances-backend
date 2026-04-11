@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - name: Skip push when PR already exists
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # On pull_request events CI always runs.
+          # On push: skip if a PR already exists for this branch,
+          # so CI runs exactly once (via the PR sync event).
+          # feature/** → develop, develop → main. main is never skipped.
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "skip=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          BRANCH="${{ github.ref_name }}"
+
+          if echo "$BRANCH" | grep -q "^feature/"; then
+            BASE="develop"
+          elif [ "$BRANCH" = "develop" ]; then
+            BASE="main"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          COUNT=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --head "$BRANCH" \
+            --base "$BASE" \
+            --json number \
+            --jq 'length')
+          if [ "$COUNT" -gt 0 ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+  lint:
+    needs: preflight
+    if: needs.preflight.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - run: pip install ruff
+      - run: ruff check src/
+
+  test:
+    needs: preflight
+    if: needs.preflight.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: pytest tests/ -v
+
+  docker-build:
+    needs: preflight
+    if: needs.preflight.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - run: docker build .
+
+  auto-pr:
+    needs: [lint, test, docker-build]
+    if: |
+      github.event_name == 'push' && (
+        startsWith(github.ref_name, 'feature/') ||
+        github.ref_name == 'develop'
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BRANCH="${{ github.ref_name }}"
+
+          if echo "$BRANCH" | grep -q "^feature/"; then
+            BASE="develop"
+            TITLE="${BRANCH#feature/}"
+          else
+            BASE="main"
+            TITLE="Release: develop → main"
+          fi
+
+          EXISTING=$(gh pr list --head "$BRANCH" --base "$BASE" --json number --jq 'length')
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "PR already exists, skipping"
+            exit 0
+          fi
+
+          gh pr create \
+            --base "$BASE" \
+            --head "$BRANCH" \
+            --title "$TITLE" \
+            --body "Automated PR — all CI checks passed."
