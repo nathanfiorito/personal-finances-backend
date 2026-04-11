@@ -5,7 +5,7 @@ import httpx
 
 import src.services.llm as llm_module
 from src.services.llm import LLMTimeoutError, LLMRateLimitError
-from openai import APITimeoutError, RateLimitError
+from openai import APITimeoutError
 
 
 def _make_timeout_error() -> APITimeoutError:
@@ -95,3 +95,30 @@ class TestChatCompletionSpans:
         result = await llm_module.chat_completion("anthropic/claude-haiku-4-5", [{"role": "user", "content": "hi"}])
 
         assert result == "hello world"
+
+    @pytest.mark.asyncio
+    async def test_no_error_on_span_when_retry_succeeds(self, mocker):
+        """Span must not be marked as error when first attempt fails but second succeeds."""
+        good_response = _mock_response(content="ok")
+        mock_client = MagicMock()
+        mock_client.chat.completions.create = AsyncMock(
+            side_effect=[_make_timeout_error(), good_response]
+        )
+        mocker.patch("src.services.llm.get_client", return_value=mock_client)
+        mocker.patch("src.services.llm.asyncio.sleep", new_callable=AsyncMock)
+
+        mock_span = MagicMock()
+        mock_ctx = MagicMock()
+        mock_ctx.__enter__ = MagicMock(return_value=mock_span)
+        mock_ctx.__exit__ = MagicMock(return_value=False)
+        mocker.patch("src.services.llm.tracing.start_span", return_value=mock_ctx)
+
+        result = await llm_module.chat_completion(
+            "anthropic/claude-haiku-4-5",
+            [{"role": "user", "content": "hi"}],
+            max_retries=2,
+        )
+
+        assert result == "ok"
+        mock_span.record_exception.assert_not_called()
+        mock_span.set_status.assert_not_called()
