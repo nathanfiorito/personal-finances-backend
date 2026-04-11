@@ -49,8 +49,9 @@ async def _timed_db(operation: str):
 
 
 async def _get_category_id(client: AsyncClient, name: str) -> int | None:
-    async with _timed_db("categories.select(id).eq(name)"):
+    async with _timed_db("categories.select(id).eq(name)") as span:
         response = await client.table("categories").select("id").eq("name", name).limit(1).execute()
+        span.set_attribute("db.rows", len(response.data))
     if response.data:
         return response.data[0]["id"]
     return None

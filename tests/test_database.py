@@ -224,3 +224,18 @@ class TestTimedDb:
         with pytest.raises(RuntimeError, match="db exploded"):
             async with db_module._timed_db("transactions.select(*)"):
                 raise RuntimeError("db exploded")
+
+    @pytest.mark.asyncio
+    async def test_exception_records_on_span(self, mocker):
+        mock_span = MagicMock()
+        mock_ctx = MagicMock()
+        mock_ctx.__enter__ = MagicMock(return_value=mock_span)
+        mock_ctx.__exit__ = MagicMock(return_value=False)
+        mocker.patch("src.services.database.tracing.start_span", return_value=mock_ctx)
+
+        with pytest.raises(RuntimeError, match="db exploded"):
+            async with db_module._timed_db("transactions.select(*)"):
+                raise RuntimeError("db exploded")
+
+        mock_span.record_exception.assert_called_once()
+        mock_span.set_status.assert_called_once()
