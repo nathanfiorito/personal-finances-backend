@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import date
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
@@ -19,7 +20,7 @@ class ExpenseFilters:
 
 @dataclass
 class ExpenseUpdate:
-    amount: str | None = None          # string to avoid float precision issues
+    amount: Decimal | None = None
     date: date | None = None
     establishment: str | None = None
     description: str | None = None

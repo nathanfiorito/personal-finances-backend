@@ -18,7 +18,7 @@ class UpdateExpenseCommand:
     description: Optional[str] = None
     category_id: Optional[int] = None
     tax_id: Optional[str] = None
-    entry_type: Optional[str] = None
+    entry_type: Optional[Literal["image", "text", "pdf"]] = None
     transaction_type: Optional[Literal["income", "outcome"]] = None
 
 
@@ -28,7 +28,7 @@ class UpdateExpense:
 
     async def execute(self, cmd: UpdateExpenseCommand) -> Expense:
         data = ExpenseUpdate(
-            amount=str(cmd.amount) if cmd.amount is not None else None,
+            amount=cmd.amount,
             date=cmd.date,
             establishment=cmd.establishment,
             description=cmd.description,
