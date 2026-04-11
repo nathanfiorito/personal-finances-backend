@@ -1,7 +1,7 @@
 # Spec: Frontend API
 
 ## Objetivo
-Expor uma API REST para o frontend consumir dados do FinBot. Todas as rotas são protegidas por autenticação via Supabase Auth (JWT). O frontend envia o token JWT no header `Authorization: Bearer <token>`, e o backend valida o token antes de processar qualquer request.
+Expor uma API REST para o frontend consumir dados do Personal Finances. Todas as rotas são protegidas por autenticação via Supabase Auth (JWT). O frontend envia o token JWT no header `Authorization: Bearer <token>`, e o backend valida o token antes de processar qualquer request.
 
 ## Entradas / Saídas
 

@@ -23,19 +23,19 @@ _CATEGORY_EMOJI: dict[str, str] = {
 }
 
 _INSIGHT_PROMPT = """\
-Você é um assistente financeiro pessoal. Analise os dados abaixo e gere um insight \
-conciso e útil em português (máx. 2 frases). Seja direto, específico e prático.
+You are a personal financial assistant. Analyze the data below and generate a concise, \
+useful insight in Portuguese (max. 2 sentences). Be direct, specific, and practical.
 
-Período: {start} a {end}
-Total gasto: R$ {total}
-Número de transações: {n_transacoes}
+Period: {start} to {end}
+Total spent: R$ {total}
+Number of transactions: {n_transactions}
 
-Por categoria:
+By category:
 {breakdown}
 
-Top estabelecimentos: {top_estab}
+Top establishments: {top_estab}
 
-Gere apenas o insight, sem introduções ou títulos.\
+Generate only the insight, no introductions or titles.\
 """
 
 
@@ -59,7 +59,7 @@ async def _generate_insight(
         start=start.strftime("%d/%m/%Y"),
         end=end.strftime("%d/%m/%Y"),
         total=_fmt(total),
-        n_transacoes=len(expenses),
+        n_transactions=len(expenses),
         breakdown=breakdown,
         top_estab=top_estab,
     )
@@ -71,8 +71,8 @@ async def _generate_insight(
         )
         return response.strip()
     except Exception:
-        logger.warning("Falha ao gerar insight de relatório")
-        return "Não foi possível gerar o insight neste momento."
+        logger.warning("Failed to generate report insight")
+        return "Unable to generate insight at this time."
 
 
 async def generate_report(start: date, end: date) -> str:
@@ -89,7 +89,7 @@ async def generate_report(start: date, end: date) -> str:
     # Aggregate locally — avoids a second DB round-trip
     totals: dict[str, Decimal] = {}
     for e in expenses:
-        totals[e.categoria] = totals.get(e.categoria, Decimal("0")) + e.valor
+        totals[e.category] = totals.get(e.category, Decimal("0")) + e.amount
     total = sum(totals.values(), Decimal("0"))
 
     # Category breakdown (sorted by amount desc)
@@ -99,20 +99,20 @@ async def generate_report(start: date, end: date) -> str:
     ]
 
     # Top establishments
-    counter = Counter(e.estabelecimento for e in expenses if e.estabelecimento)
+    counter = Counter(e.establishment for e in expenses if e.establishment)
     top_estab = ", ".join(f"{n} ({c}x)" for n, c in counter.most_common(3)) or "—"
 
     # Period label
     days = (end - start).days
     if days <= 7:
-        periodo = f"Últimos 7 dias ({start.strftime('%d/%m')} – {end.strftime('%d/%m/%Y')})"
+        period = f"Últimos 7 dias ({start.strftime('%d/%m')} – {end.strftime('%d/%m/%Y')})"
     else:
-        periodo = f"{start.strftime('%d/%m')} – {end.strftime('%d/%m/%Y')}"
+        period = f"{start.strftime('%d/%m')} – {end.strftime('%d/%m/%Y')}"
 
     insight = await _generate_insight(start, end, total, totals, expenses, top_estab)
 
     return "\n".join([
-        f"📊 <b>Relatório — {periodo}</b>",
+        f"📊 <b>Relatório — {period}</b>",
         "",
         f"💰 <b>Total: R$ {_fmt(total)}</b>",
         f"📋 Transações: {len(expenses)}",

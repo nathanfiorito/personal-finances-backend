@@ -1,4 +1,4 @@
-# FinBot — Backlog de Tarefas
+# Personal Finances — Backlog de Tarefas
 
 Organizado em duas fases: **POC** (validação técnica) e **MVP** (produto funcional).
 

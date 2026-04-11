@@ -1,4 +1,4 @@
-# API Reference — FinBot
+# API Reference — Personal Finances
 
 Documento de referência para o desenvolvimento do frontend. Cobre endpoints HTTP, modelos de dados, schema do banco e operações disponíveis.
 

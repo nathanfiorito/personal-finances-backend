@@ -11,45 +11,45 @@ from src.services import llm
 
 logger = logging.getLogger(__name__)
 
-_PROMPT_IMAGE = """Analise este comprovante de pagamento brasileiro e extraia as informações no formato JSON abaixo.
-Retorne APENAS o JSON, sem texto adicional, sem markdown, sem explicações.
+_PROMPT_IMAGE = """Analyze this Brazilian payment receipt and extract the information in the JSON format below.
+Return ONLY the JSON, no additional text, no markdown, no explanations.
 
 {
-  "valor": <número decimal positivo, ex: 45.90>,
-  "data": "<data da transação em ISO 8601, ex: 2024-01-15>",
-  "estabelecimento": "<nome do estabelecimento ou null>",
-  "descricao": "<descrição resumida do pagamento ou null>",
-  "cnpj": "<CNPJ do estabelecimento ou null>",
-  "transaction_type": "<\"income\" se for dinheiro entrando (recebimento, reembolso, salário, transferência recebida) ou \"outcome\" se for dinheiro saindo (compra, pagamento, conta). Na dúvida, use \"outcome\">",
-  "confianca": <número entre 0.0 e 1.0 indicando sua confiança na extração>
+  "amount": <positive decimal number, e.g.: 45.90>,
+  "date": "<transaction date in ISO 8601, e.g.: 2024-01-15>",
+  "establishment": "<establishment name or null>",
+  "description": "<short payment description or null>",
+  "tax_id": "<establishment CNPJ tax ID or null>",
+  "transaction_type": "<\"income\" for money coming in (received, refund, salary, transfer received) or \"outcome\" for money going out (purchase, payment, bill). When in doubt, use \"outcome\">",
+  "confidence": <number between 0.0 and 1.0 indicating your confidence in the extraction>
 }
 
-Regras:
-- valor: use o valor TOTAL da transação. Vírgula brasileira (45,90) deve virar ponto decimal (45.90).
-- data: use a data da transação, não a de emissão. Se ambígua (mm/dd vs dd/mm), prefira o formato brasileiro (dd/mm).
-- estabelecimento: nome comercial, não razão social.
-- Se um campo não for legível ou não existir, use null.
-- confianca deve refletir a qualidade GERAL da extração (1.0 = todos os campos claramente legíveis)."""
+Rules:
+- amount: use the TOTAL transaction value. Brazilian comma (45,90) becomes decimal point (45.90).
+- date: use the transaction date, not the issue date. If ambiguous (mm/dd vs dd/mm), prefer Brazilian format (dd/mm).
+- establishment: commercial name, not legal entity name.
+- If a field is not legible or does not exist, use null.
+- confidence should reflect the OVERALL quality of the extraction (1.0 = all fields clearly legible)."""
 
-_PROMPT_TEXT = """Extraia as informações financeiras da mensagem abaixo e retorne APENAS um JSON, sem texto adicional.
+_PROMPT_TEXT = """Extract the financial information from the message below and return ONLY a JSON, no additional text.
 
 {{
-  "valor": <número decimal positivo, ex: 45.90>,
-  "data": "<data em ISO 8601 ou null se não mencionada>",
-  "estabelecimento": "<nome do local/estabelecimento ou null>",
-  "descricao": "<descrição do que foi comprado/pago/recebido ou null>",
-  "cnpj": null,
-  "transaction_type": "<\"income\" se for dinheiro entrando (recebi, salário, reembolso, transferência recebida, venda) ou \"outcome\" se for dinheiro saindo (comprei, paguei, gastei, conta). Na dúvida, use \"outcome\">",
-  "confianca": <0.0 a 1.0>
+  "amount": <positive decimal number, e.g.: 45.90>,
+  "date": "<date in ISO 8601 or null if not mentioned>",
+  "establishment": "<place/establishment name or null>",
+  "description": "<description of what was purchased/paid/received or null>",
+  "tax_id": null,
+  "transaction_type": "<\"income\" for money coming in (received, salary, refund, transfer received, sale) or \"outcome\" for money going out (bought, paid, spent, bill). When in doubt, use \"outcome\">",
+  "confidence": <0.0 to 1.0>
 }}
 
-Regras:
-- Se a data não for mencionada, use null (não invente uma data).
-- Valores como "50 reais", "R$ 50", "50,00" ou "50" devem virar 50.0.
-- Abreviações e erros de digitação são comuns — tente inferir o estabelecimento.
-- confianca: quanto mais clara a mensagem, mais alto.
+Rules:
+- If the date is not mentioned, use null (do not invent a date).
+- Values like "50 reais", "R$ 50", "50,00" or "50" should become 50.0.
+- Abbreviations and typos are common — try to infer the establishment.
+- confidence: the clearer the message, the higher.
 
-Mensagem: "{texto}" """
+Message: "{texto}" """
 
 
 class ExtractionError(Exception):
@@ -57,16 +57,16 @@ class ExtractionError(Exception):
 
 
 def _parse_llm_json(raw: str) -> dict:
-    """Extrai JSON da resposta do LLM, com fallback para regex se necessário."""
+    """Extract JSON from the LLM response, with regex fallback if needed."""
     text = raw.strip()
 
-    # Remover blocos markdown ```json ... ```
+    # Remove markdown blocks ```json ... ```
     text = re.sub(r"```(?:json)?\s*", "", text).strip("`").strip()
 
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        # Tentar extrair o primeiro objeto JSON do texto
+        # Try to extract the first JSON object from text
         match = re.search(r"\{.*\}", text, re.DOTALL)
         if match:
             try:
@@ -74,42 +74,42 @@ def _parse_llm_json(raw: str) -> dict:
             except json.JSONDecodeError:
                 pass
 
-    raise ExtractionError(f"Não foi possível parsear JSON da resposta: {raw[:200]}")
+    raise ExtractionError(f"Failed to parse JSON from response: {raw[:200]}")
 
 
-def _build_expense(data: dict, tipo: str) -> ExtractedExpense:
-    """Constrói ExtractedExpense a partir do dict retornado pelo LLM."""
-    # Normalizar valor
-    raw_valor = data.get("valor")
-    if raw_valor is None:
-        raise ExtractionError("Campo 'valor' ausente na resposta do LLM")
+def _build_expense(data: dict, entry_type: str) -> ExtractedExpense:
+    """Build ExtractedExpense from the dict returned by the LLM."""
+    # Normalize amount
+    raw_amount = data.get("amount")
+    if raw_amount is None:
+        raise ExtractionError("Missing 'amount' field in LLM response")
     try:
-        valor = Decimal(str(raw_valor))
+        amount = Decimal(str(raw_amount))
     except InvalidOperation:
-        raise ExtractionError(f"Valor inválido: {raw_valor!r}")
+        raise ExtractionError(f"Invalid amount: {raw_amount!r}")
 
-    # Normalizar data
-    raw_data = data.get("data")
+    # Normalize date
+    raw_date = data.get("date")
     parsed_date: date | None = None
-    if raw_data:
+    if raw_date:
         try:
-            parsed_date = date.fromisoformat(raw_data)
+            parsed_date = date.fromisoformat(raw_date)
         except (ValueError, TypeError):
-            logger.warning("Data inválida retornada pelo LLM: %r — usando None", raw_data)
+            logger.warning("Invalid date returned by LLM: %r -- using None", raw_date)
 
     raw_type = data.get("transaction_type", "outcome")
     transaction_type = raw_type if raw_type in ("income", "outcome") else "outcome"
 
     return ExtractedExpense(
-        valor=valor,
-        data=parsed_date or date.today(),
-        estabelecimento=data.get("estabelecimento") or None,
-        descricao=data.get("descricao") or None,
-        cnpj=data.get("cnpj") or None,
-        tipo_entrada=tipo,
+        amount=amount,
+        date=parsed_date or date.today(),
+        establishment=data.get("establishment") or None,
+        description=data.get("description") or None,
+        tax_id=data.get("tax_id") or None,
+        entry_type=entry_type,
         transaction_type=transaction_type,
-        confianca=float(data.get("confianca", 0.5)),
-        dados_raw=data,
+        confidence=float(data.get("confidence", 0.5)),
+        raw_data=data,
     )
 
 
@@ -135,12 +135,12 @@ async def extract_from_image(image_bytes: bytes) -> ExtractedExpense:
     )
 
     data = _parse_llm_json(raw)
-    expense = _build_expense(data, tipo="imagem")
+    expense = _build_expense(data, entry_type="imagem")
     logger.info(
-        "Extração de imagem: valor=%.2f estabelecimento=%r confianca=%.2f",
-        expense.valor,
-        expense.estabelecimento,
-        expense.confianca,
+        "Image extraction: amount=%.2f establishment=%r confidence=%.2f",
+        expense.amount,
+        expense.establishment,
+        expense.confidence,
     )
     return expense
 
@@ -149,13 +149,14 @@ def _extract_text_from_pdf(pdf_bytes: bytes) -> str | None:
     """Extracts text from a PDF. Returns None if the PDF has no readable text (< 50 chars)."""
     try:
         import io
+
         import pdfplumber
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
             text = "\n".join(page.extract_text() or "" for page in pdf.pages)
         text = text.strip()
         return text if len(text) >= 50 else None
     except Exception:
-        logger.warning("pdfplumber falhou na extração de texto do PDF")
+        logger.warning("pdfplumber failed to extract text from PDF")
         return None
 
 
@@ -171,13 +172,13 @@ def _pdf_to_image(pdf_bytes: bytes) -> bytes:
 async def extract_from_pdf(pdf_bytes: bytes) -> ExtractedExpense:
     text = _extract_text_from_pdf(pdf_bytes)
     if text:
-        logger.info("PDF com texto extraível — usando Haiku")
+        logger.info("PDF with extractable text — using Haiku")
         expense = await extract_from_text(text)
     else:
-        logger.info("PDF sem texto — convertendo para imagem e usando Sonnet")
+        logger.info("PDF without text — converting to image and using Sonnet")
         image_bytes = _pdf_to_image(pdf_bytes)
         expense = await extract_from_image(image_bytes)
-    return expense.model_copy(update={"tipo_entrada": "pdf"})
+    return expense.model_copy(update={"entry_type": "pdf"})
 
 
 async def extract_from_text(text: str) -> ExtractedExpense:
@@ -191,11 +192,11 @@ async def extract_from_text(text: str) -> ExtractedExpense:
     )
 
     data = _parse_llm_json(raw)
-    expense = _build_expense(data, tipo="texto")
+    expense = _build_expense(data, entry_type="texto")
     logger.info(
-        "Extração de texto: valor=%.2f estabelecimento=%r confianca=%.2f",
-        expense.valor,
-        expense.estabelecimento,
-        expense.confianca,
+        "Text extraction: amount=%.2f establishment=%r confidence=%.2f",
+        expense.amount,
+        expense.establishment,
+        expense.confidence,
     )
     return expense

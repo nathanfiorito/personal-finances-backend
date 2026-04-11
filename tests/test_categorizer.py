@@ -8,13 +8,13 @@ from src.agents.categorizer import categorize, CATEGORIES
 from src.models.expense import ExtractedExpense
 
 
-def _expense(estabelecimento: str | None = None, descricao: str | None = None) -> ExtractedExpense:
+def _expense(establishment: str | None = None, description: str | None = None) -> ExtractedExpense:
     return ExtractedExpense(
-        valor=Decimal("50.00"),
-        data=date.today(),
-        estabelecimento=estabelecimento,
-        descricao=descricao,
-        tipo_entrada="texto",
+        amount=Decimal("50.00"),
+        date=date.today(),
+        establishment=establishment,
+        description=description,
+        entry_type="texto",
     )
 
 

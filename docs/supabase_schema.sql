@@ -1,23 +1,22 @@
--- FinBot: Schema atual
--- Estado reflete todas as migrations aplicadas até agora.
--- Para criar o banco do zero, execute este arquivo no SQL Editor do Supabase.
+-- FinBot: Current schema
+-- To create the database from scratch, run this file in the Supabase SQL Editor.
 --
--- Histórico de migrations aplicadas:
---   1. Schema inicial (tabela expenses + categorias)
---   2. FK expenses.categoria_id → categories.id; drop coluna texto categoria
+-- Applied migrations history:
+--   1. Initial schema (expenses table + categories)
+--   2. FK expenses.category_id → categories.id; drop text category column
 --   3. Rename expenses → transactions; add transaction_type
+--   4. Rename Portuguese columns to English (migration_rename_columns.sql)
 --
--- Para atualizar um banco existente, use os arquivos em docs/:
---   - migration_transactions.sql
+-- To update an existing database, apply migrations in order from docs/.
 
 -- ============================================================
--- Categorias
+-- Categories
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS categories (
     id          SERIAL PRIMARY KEY,
-    nome        VARCHAR(100) UNIQUE NOT NULL,
-    ativo       BOOLEAN DEFAULT TRUE,
+    name        VARCHAR(100) UNIQUE NOT NULL,
+    is_active   BOOLEAN DEFAULT TRUE,
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -28,8 +27,8 @@ CREATE POLICY "service role full access"
     USING (true)
     WITH CHECK (true);
 
--- Seed: categorias padrão
-INSERT INTO categories (nome) VALUES
+-- Seed: default categories
+INSERT INTO categories (name) VALUES
     ('Alimentação'),
     ('Educação'),
     ('Lazer'),
@@ -40,33 +39,33 @@ INSERT INTO categories (nome) VALUES
     ('Serviços'),
     ('Transporte'),
     ('Vestuário')
-ON CONFLICT (nome) DO NOTHING;
+ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================
 -- Transactions
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS transactions (
-    id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    valor           DECIMAL(10,2) NOT NULL,
-    data            DATE NOT NULL,
-    estabelecimento VARCHAR(255),
-    descricao       TEXT,
-    categoria_id    INT NOT NULL REFERENCES categories(id),
-    cnpj            VARCHAR(18),
-    tipo_entrada    VARCHAR(20) NOT NULL CHECK (tipo_entrada IN ('imagem', 'texto', 'pdf')),
-    transaction_type VARCHAR(10) NOT NULL DEFAULT 'outcome'
-                        CHECK (transaction_type IN ('income', 'outcome')),
-    confianca       DECIMAL(3,2) CHECK (confianca BETWEEN 0.00 AND 1.00),
-    dados_raw       JSONB DEFAULT '{}',
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ DEFAULT NOW()
+    id                UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    amount            DECIMAL(10,2) NOT NULL,
+    date              DATE NOT NULL,
+    establishment     VARCHAR(255),
+    description       TEXT,
+    category_id       INT NOT NULL REFERENCES categories(id),
+    tax_id            VARCHAR(18),
+    entry_type        VARCHAR(20) NOT NULL CHECK (entry_type IN ('imagem', 'texto', 'pdf')),
+    transaction_type  VARCHAR(10) NOT NULL DEFAULT 'outcome'
+                          CHECK (transaction_type IN ('income', 'outcome')),
+    confidence        DECIMAL(3,2) CHECK (confidence BETWEEN 0.00 AND 1.00),
+    raw_data          JSONB DEFAULT '{}',
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_transactions_data              ON transactions(data);
-CREATE INDEX IF NOT EXISTS idx_transactions_categoria_id      ON transactions(categoria_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_data_categoria_id ON transactions(data, categoria_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_transaction_type  ON transactions(transaction_type);
+CREATE INDEX IF NOT EXISTS idx_transactions_date               ON transactions(date);
+CREATE INDEX IF NOT EXISTS idx_transactions_category_id        ON transactions(category_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_date_category_id   ON transactions(date, category_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_transaction_type   ON transactions(transaction_type);
 
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 

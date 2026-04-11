@@ -7,28 +7,28 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class ExtractedExpense(BaseModel):
-    valor: Decimal
-    data: date
-    estabelecimento: str | None = None
-    descricao: str | None = None
-    cnpj: str | None = None
-    tipo_entrada: Literal["imagem", "texto", "pdf"]
+    amount: Decimal
+    date: date
+    establishment: str | None = None
+    description: str | None = None
+    tax_id: str | None = None
+    entry_type: Literal["imagem", "texto", "pdf"]
     transaction_type: Literal["income", "outcome"] = "outcome"
-    confianca: float = Field(ge=0.0, le=1.0, default=0.5)
-    dados_raw: dict = Field(default_factory=dict)
+    confidence: float = Field(ge=0.0, le=1.0, default=0.5)
+    raw_data: dict = Field(default_factory=dict)
 
-    @field_validator("valor")
+    @field_validator("amount")
     @classmethod
-    def valor_must_be_positive(cls, v: Decimal) -> Decimal:
+    def amount_must_be_positive(cls, v: Decimal) -> Decimal:
         if v <= 0:
-            raise ValueError("valor deve ser positivo")
+            raise ValueError("Amount must be positive")
         if v > Decimal("999999.99"):
-            raise ValueError("valor excede o limite razoável de R$ 999.999,99")
+            raise ValueError("Amount exceeds reasonable limit of 999,999.99")
         return v
 
-    @field_validator("cnpj")
+    @field_validator("tax_id")
     @classmethod
-    def format_cnpj(cls, v: str | None) -> str | None:
+    def format_tax_id(cls, v: str | None) -> str | None:
         if v is None:
             return None
         digits = "".join(c for c in v if c.isdigit())
@@ -39,14 +39,14 @@ class ExtractedExpense(BaseModel):
 
 class Expense(BaseModel):
     id: UUID
-    valor: Decimal
-    data: date
-    estabelecimento: str | None
-    descricao: str | None
-    categoria: str
-    categoria_id: int | None = None
-    cnpj: str | None
-    tipo_entrada: str
+    amount: Decimal
+    date: date
+    establishment: str | None
+    description: str | None
+    category: str
+    category_id: int | None = None
+    tax_id: str | None
+    entry_type: str
     transaction_type: Literal["income", "outcome"] = "outcome"
-    confianca: float | None
+    confidence: float | None
     created_at: datetime

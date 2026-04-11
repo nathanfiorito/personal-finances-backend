@@ -10,27 +10,27 @@ from src.models.expense import Expense, ExtractedExpense
 
 def _expense() -> ExtractedExpense:
     return ExtractedExpense(
-        valor=Decimal("45.90"),
-        data=date(2024, 1, 15),
-        estabelecimento="Supermercado Extra",
-        descricao="Compras do mês",
-        tipo_entrada="texto",
-        confianca=0.9,
+        amount=Decimal("45.90"),
+        date=date(2024, 1, 15),
+        establishment="Supermercado Extra",
+        description="Compras do mês",
+        entry_type="texto",
+        confidence=0.9,
     )
 
 
-def _expense_row(id_: str = "550e8400-e29b-41d4-a716-446655440000", categoria: str = "Alimentação") -> dict:
+def _expense_row(id_: str = "550e8400-e29b-41d4-a716-446655440000", category: str = "Alimentação") -> dict:
     return {
         "id": id_,
-        "valor": "45.90",
-        "data": "2024-01-15",
-        "estabelecimento": "Supermercado Extra",
-        "descricao": "Compras do mês",
-        "categoria_id": 1,
-        "categories": {"nome": categoria},
-        "cnpj": None,
-        "tipo_entrada": "texto",
-        "confianca": 0.9,
+        "amount": "45.90",
+        "date": "2024-01-15",
+        "establishment": "Supermercado Extra",
+        "description": "Compras do mês",
+        "category_id": 1,
+        "categories": {"name": category},
+        "tax_id": None,
+        "entry_type": "texto",
+        "confidence": 0.9,
         "created_at": "2024-01-15T10:00:00+00:00",
     }
 
@@ -38,14 +38,14 @@ def _expense_row(id_: str = "550e8400-e29b-41d4-a716-446655440000", categoria: s
 def _make_saved_expense(**kwargs) -> Expense:
     defaults = dict(
         id="550e8400-e29b-41d4-a716-446655440000",
-        valor=Decimal("45.90"),
-        data=date(2024, 1, 15),
-        estabelecimento="Supermercado Extra",
-        descricao="Compras do mês",
-        categoria="Alimentação",
-        cnpj=None,
-        tipo_entrada="texto",
-        confianca=0.9,
+        amount=Decimal("45.90"),
+        date=date(2024, 1, 15),
+        establishment="Supermercado Extra",
+        description="Compras do mês",
+        category="Alimentação",
+        tax_id=None,
+        entry_type="texto",
+        confidence=0.9,
         created_at=datetime(2024, 1, 15, 10, 0, 0),
     )
     defaults.update(kwargs)
@@ -107,12 +107,12 @@ class TestSaveExpense:
         await db_module.save_expense(_expense(), "Alimentação")
 
         inserted = mock_client.table.return_value.insert.call_args[0][0]
-        assert inserted["valor"] == "45.90"
-        assert inserted["data"] == "2024-01-15"
-        assert inserted["categoria_id"] == 1
-        assert inserted["tipo_entrada"] == "texto"
-        assert inserted["confianca"] == 0.9
-        assert inserted["estabelecimento"] == "Supermercado Extra"
+        assert inserted["amount"] == "45.90"
+        assert inserted["date"] == "2024-01-15"
+        assert inserted["category_id"] == 1
+        assert inserted["entry_type"] == "texto"
+        assert inserted["confidence"] == 0.9
+        assert inserted["establishment"] == "Supermercado Extra"
 
     @pytest.mark.asyncio
     async def test_propagates_db_exception(self, mocker):
@@ -141,8 +141,8 @@ class TestGetExpensesByPeriod:
 
         assert len(result) == 1
         assert isinstance(result[0], Expense)
-        assert result[0].valor == Decimal("45.90")
-        assert result[0].categoria == "Alimentação"
+        assert result[0].amount == Decimal("45.90")
+        assert result[0].category == "Alimentação"
 
     @pytest.mark.asyncio
     async def test_passes_correct_date_filters(self, mocker):
@@ -156,8 +156,8 @@ class TestGetExpensesByPeriod:
         await db_module.get_expenses_by_period(date(2024, 1, 1), date(2024, 1, 31))
 
         select_chain = mock_client.table.return_value.select.return_value
-        select_chain.gte.assert_called_once_with("data", "2024-01-01")
-        select_chain.gte.return_value.lte.assert_called_once_with("data", "2024-01-31")
+        select_chain.gte.assert_called_once_with("date", "2024-01-01")
+        select_chain.gte.return_value.lte.assert_called_once_with("date", "2024-01-31")
 
     @pytest.mark.asyncio
     async def test_empty_period_returns_empty_list(self, mocker):
@@ -179,9 +179,9 @@ class TestGetTotalsByCategory:
     @pytest.mark.asyncio
     async def test_aggregates_by_category(self, mocker):
         expenses = [
-            _make_saved_expense(id_="u1", valor=Decimal("50.00"), categoria="Alimentação"),
-            _make_saved_expense(id_="u2", valor=Decimal("30.00"), categoria="Alimentação"),
-            _make_saved_expense(id_="u3", valor=Decimal("100.00"), categoria="Transporte"),
+            _make_saved_expense(id_="u1", amount=Decimal("50.00"), category="Alimentação"),
+            _make_saved_expense(id_="u2", amount=Decimal("30.00"), category="Alimentação"),
+            _make_saved_expense(id_="u3", amount=Decimal("100.00"), category="Transporte"),
         ]
         mocker.patch("src.services.database.get_expenses_by_period", return_value=expenses)
 
@@ -201,8 +201,8 @@ class TestGetTotalsByCategory:
     @pytest.mark.asyncio
     async def test_single_category(self, mocker):
         expenses = [
-            _make_saved_expense(id_="u1", valor=Decimal("25.00"), categoria="Saúde"),
-            _make_saved_expense(id_="u2", valor=Decimal("75.50"), categoria="Saúde"),
+            _make_saved_expense(id_="u1", amount=Decimal("25.00"), category="Saúde"),
+            _make_saved_expense(id_="u2", amount=Decimal("75.50"), category="Saúde"),
         ]
         mocker.patch("src.services.database.get_expenses_by_period", return_value=expenses)
 
@@ -210,3 +210,50 @@ class TestGetTotalsByCategory:
 
         assert len(result) == 1
         assert result["Saúde"] == Decimal("100.50")
+
+
+class TestTimedDb:
+    @pytest.mark.asyncio
+    async def test_yields_span_with_set_attribute(self):
+        """_timed_db must yield an object whose set_attribute is callable."""
+        async with db_module._timed_db("transactions.select(*)") as span:
+            span.set_attribute("db.rows", 7)  # must not raise
+
+    @pytest.mark.asyncio
+    async def test_propagates_exception_and_reraises(self):
+        with pytest.raises(RuntimeError, match="db exploded"):
+            async with db_module._timed_db("transactions.select(*)"):
+                raise RuntimeError("db exploded")
+
+    @pytest.mark.asyncio
+    async def test_exception_records_on_span(self, mocker):
+        mock_span = MagicMock()
+        mock_ctx = MagicMock()
+        mock_ctx.__enter__.return_value = mock_span
+        mock_ctx.__exit__.return_value = False
+        mocker.patch("src.services.database.tracing.start_span", return_value=mock_ctx)
+
+        with pytest.raises(RuntimeError, match="db exploded"):
+            async with db_module._timed_db("transactions.select(*)"):
+                raise RuntimeError("db exploded")
+
+        mock_span.record_exception.assert_called_once()
+        mock_span.set_status.assert_called_once()
+
+
+class TestDbSpanAttrs:
+    def test_select_with_period(self):
+        result = db_module._db_span_attrs("transactions.select(*).period(2024-01-01,2024-01-31)")
+        assert result == {"db.table": "transactions", "db.operation": "select"}
+
+    def test_insert(self):
+        result = db_module._db_span_attrs("transactions.insert")
+        assert result == {"db.table": "transactions", "db.operation": "insert"}
+
+    def test_update_with_args(self):
+        result = db_module._db_span_attrs("categories.update(is_active=False).eq(id=5)")
+        assert result == {"db.table": "categories", "db.operation": "update"}
+
+    def test_no_dot_falls_back_to_query(self):
+        result = db_module._db_span_attrs("unknown_operation")
+        assert result == {"db.table": "unknown_operation", "db.operation": "query"}

@@ -3,9 +3,10 @@ import logging
 import time
 from typing import Any
 
-from openai import AsyncOpenAI, APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
+from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI, RateLimitError
 
 from src.config.settings import settings
+from src.services import tracing
 
 logger = logging.getLogger(__name__)
 
@@ -40,48 +41,60 @@ async def chat_completion(
     client = get_client()
     delay = 1.0
 
-    for attempt in range(1, max_retries + 1):
-        try:
-            t = time.perf_counter()
-            response = await client.chat.completions.create(
-                model=model,
-                messages=messages,
-                **kwargs,
-            )
-            elapsed_ms = (time.perf_counter() - t) * 1000
-            content = response.choices[0].message.content or ""
-            logger.info(
-                "LLM %-45s tokens_in=%-5s tokens_out=%-5s %.0fms",
-                model,
-                response.usage.prompt_tokens if response.usage else "?",
-                response.usage.completion_tokens if response.usage else "?",
-                elapsed_ms,
-            )
-            return content
+    with tracing.start_span("llm.call", {"llm.model": model}) as span:
+        for attempt in range(1, max_retries + 1):
+            try:
+                t = time.perf_counter()
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    **kwargs,
+                )
+                elapsed_ms = (time.perf_counter() - t) * 1000
+                content = response.choices[0].message.content or ""
+                if response.usage:
+                    span.set_attribute("llm.tokens_in", response.usage.prompt_tokens)
+                    span.set_attribute("llm.tokens_out", response.usage.completion_tokens)
+                logger.info(
+                    "LLM %-45s tokens_in=%-5s tokens_out=%-5s %.0fms",
+                    model,
+                    response.usage.prompt_tokens if response.usage else "?",
+                    response.usage.completion_tokens if response.usage else "?",
+                    elapsed_ms,
+                )
+                return content
 
-        except APITimeoutError as e:
-            logger.warning("Timeout na chamada ao LLM (tentativa %d/%d)", attempt, max_retries)
-            if attempt == max_retries:
-                raise LLMTimeoutError("Tempo limite excedido ao chamar o LLM") from e
-            await asyncio.sleep(delay)
-            delay *= 2
+            except APITimeoutError as e:
+                logger.warning("LLM call timeout (attempt %d/%d)", attempt, max_retries)
+                if attempt == max_retries:
+                    span.record_exception(e)
+                    span.set_status(tracing.STATUS_ERROR, "timeout")
+                    raise LLMTimeoutError("LLM call timed out after all retries") from e
+                await asyncio.sleep(delay)
+                delay *= 2
 
-        except RateLimitError as e:
-            logger.warning("Rate limit atingido (tentativa %d/%d)", attempt, max_retries)
-            if attempt == max_retries:
-                raise LLMRateLimitError("Limite de requisições da API atingido") from e
-            await asyncio.sleep(delay)
-            delay *= 2
+            except RateLimitError as e:
+                logger.warning("Rate limit hit (attempt %d/%d)", attempt, max_retries)
+                if attempt == max_retries:
+                    span.record_exception(e)
+                    span.set_status(tracing.STATUS_ERROR, "rate_limit")
+                    raise LLMRateLimitError("API rate limit reached after all retries") from e
+                await asyncio.sleep(delay)
+                delay *= 2
 
-        except APIConnectionError:
-            logger.warning("Erro de conexão com OpenRouter (tentativa %d/%d)", attempt, max_retries)
-            if attempt == max_retries:
+            except APIConnectionError as e:
+                logger.warning("OpenRouter connection error (attempt %d/%d)", attempt, max_retries)
+                if attempt == max_retries:
+                    span.record_exception(e)
+                    span.set_status(tracing.STATUS_ERROR, "connection_error")
+                    raise
+                await asyncio.sleep(delay)
+                delay *= 2
+
+            except APIStatusError as e:
+                span.record_exception(e)
+                span.set_status(tracing.STATUS_ERROR, str(e.status_code))
+                logger.error("API status error: %s %s", e.status_code, e.message)
                 raise
-            await asyncio.sleep(delay)
-            delay *= 2
 
-        except APIStatusError as e:
-            logger.error("Erro de status da API: %s %s", e.status_code, e.message)
-            raise
-
-    raise RuntimeError("Falha após todas as tentativas")
+    raise RuntimeError("Failed after all attempts")

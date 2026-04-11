@@ -1,4 +1,4 @@
-# POC — FinBot (Bot de Despesas no Telegram)
+# POC — Personal Finances (Bot de Despesas no Telegram)
 
 ## Objetivo
 

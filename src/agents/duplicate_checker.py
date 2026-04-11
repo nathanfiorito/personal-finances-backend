@@ -7,22 +7,22 @@ from src.services.llm import chat_completion
 logger = logging.getLogger(__name__)
 
 _PROMPT = """\
-Analise se a nova despesa é uma possível duplicata de alguma das despesas recentes.
+Analyze whether the new expense is a possible duplicate of any recent expenses.
 
-Nova despesa:
-- Valor: R$ {valor}
-- Data: {data}
-- Estabelecimento: {estabelecimento}
-- Descrição: {descricao}
+New expense:
+- Amount: R$ {amount}
+- Date: {date}
+- Establishment: {establishment}
+- Description: {description}
 
-Despesas recentes:
-{recentes}
+Recent expenses:
+{recent_lines}
 
-Responda APENAS com uma das opções:
-- "DUPLICATA: <motivo breve em português>" — se for duplicata óbvia (mesmo valor E mesmo local ou descrição, com data próxima)
-- "OK" — se não for duplicata
+Respond ONLY with one of the options:
+- "DUPLICATE: <brief reason in Portuguese>" — if it is an obvious duplicate (same amount AND same place or description, with close date)
+- "OK" — if not a duplicate
 
-Seja conservador: só marque como DUPLICATA se houver forte evidência. Despesas similares mas com valores ou locais diferentes devem ser "OK".\
+Be conservative: only mark as DUPLICATE if there is strong evidence. Similar expenses but with different amounts or places should be "OK".\
 """
 
 
@@ -34,17 +34,17 @@ async def check_duplicate(expense: ExtractedExpense, recent: list[Expense]) -> s
     if not recent:
         return None
 
-    recentes_lines = [
-        f"{i}. R$ {e.valor} | {e.data} | {e.estabelecimento or '-'} | {e.descricao or '-'}"
+    recent_lines = [
+        f"{i}. R$ {e.amount} | {e.date} | {e.establishment or '-'} | {e.description or '-'}"
         for i, e in enumerate(recent, 1)
     ]
 
     prompt = _PROMPT.format(
-        valor=expense.valor,
-        data=expense.data,
-        estabelecimento=expense.estabelecimento or "não informado",
-        descricao=expense.descricao or "não informada",
-        recentes="\n".join(recentes_lines),
+        amount=expense.amount,
+        date=expense.date,
+        establishment=expense.establishment or "not provided",
+        description=expense.description or "not provided",
+        recent_lines="\n".join(recent_lines),
     )
 
     try:
@@ -54,9 +54,10 @@ async def check_duplicate(expense: ExtractedExpense, recent: list[Expense]) -> s
             max_tokens=80,
         )
         response = response.strip()
-        if response.upper().startswith("DUPLICATA:"):
-            return response[len("DUPLICATA:"):].strip()
+        if response.upper().startswith("DUPLICATE:") or response.upper().startswith("DUPLICATA:"):
+            prefix = "DUPLICATE:" if response.upper().startswith("DUPLICATE:") else "DUPLICATA:"
+            return response[len(prefix):].strip()
         return None
     except Exception:
-        logger.warning("Falha na verificação de duplicidade via IA — prosseguindo sem verificar")
+        logger.warning("AI duplicate check failed — proceeding without verification")
         return None

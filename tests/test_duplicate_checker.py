@@ -9,28 +9,28 @@ from src.agents.duplicate_checker import check_duplicate
 
 def _expense(**kwargs) -> ExtractedExpense:
     defaults = dict(
-        valor=Decimal("45.90"),
-        data=date(2024, 1, 15),
-        estabelecimento="Supermercado Extra",
-        descricao="Compras do mês",
-        tipo_entrada="texto",
-        confianca=0.9,
+        amount=Decimal("45.90"),
+        date=date(2024, 1, 15),
+        establishment="Supermercado Extra",
+        description="Compras do mês",
+        entry_type="texto",
+        confidence=0.9,
     )
     defaults.update(kwargs)
     return ExtractedExpense(**defaults)
 
 
-def _recent(valor="45.90", estabelecimento="Supermercado Extra") -> Expense:
+def _recent(amount="45.90", establishment="Supermercado Extra") -> Expense:
     return Expense(
         id="550e8400-e29b-41d4-a716-446655440001",
-        valor=Decimal(valor),
-        data=date(2024, 1, 14),
-        estabelecimento=estabelecimento,
-        descricao="Compras do mês",
-        categoria="Alimentação",
-        cnpj=None,
-        tipo_entrada="texto",
-        confianca=0.9,
+        amount=Decimal(amount),
+        date=date(2024, 1, 14),
+        establishment=establishment,
+        description="Compras do mês",
+        category="Alimentação",
+        tax_id=None,
+        entry_type="texto",
+        confidence=0.9,
         created_at=datetime(2024, 1, 14, 10, 0, 0),
     )
 
@@ -50,7 +50,7 @@ class TestCheckDuplicate:
         )
         result = await check_duplicate(_expense(), [_recent()])
         assert result is not None
-        assert "estabelecimento" in result.lower() or len(result) > 0
+        assert "establishment" in result.lower() or len(result) > 0
 
     @pytest.mark.asyncio
     async def test_no_duplicate_returns_none(self, mocker):
@@ -59,7 +59,7 @@ class TestCheckDuplicate:
             new_callable=AsyncMock,
             return_value="OK",
         )
-        result = await check_duplicate(_expense(), [_recent(valor="200.00")])
+        result = await check_duplicate(_expense(), [_recent(amount="200.00")])
         assert result is None
 
     @pytest.mark.asyncio

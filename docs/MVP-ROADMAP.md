@@ -1,4 +1,4 @@
-# MVP Roadmap — FinBot
+# MVP Roadmap — Personal Finances
 
 ## Priorização (MoSCoW)
 

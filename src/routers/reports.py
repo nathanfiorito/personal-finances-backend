@@ -13,12 +13,12 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 
 class SummaryItem(BaseModel):
-    categoria: str
+    category: str
     total: Decimal
 
 
 class MonthlyCategoryItem(BaseModel):
-    categoria: str
+    category: str
     total: Decimal
 
 
@@ -38,11 +38,11 @@ async def get_summary(
     if start > end:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="start deve ser menor ou igual a end",
+            detail="start must be less than or equal to end",
         )
     totals = await database.get_totals_by_category(start, end, transaction_type)
     return sorted(
-        [SummaryItem(categoria=k, total=v) for k, v in totals.items()],
+        [SummaryItem(category=k, total=v) for k, v in totals.items()],
         key=lambda x: x.total,
         reverse=True,
     )
@@ -61,12 +61,12 @@ async def get_monthly(
 
     monthly: dict[int, dict[str, Decimal]] = defaultdict(lambda: defaultdict(Decimal))
     for exp in expenses:
-        monthly[exp.data.month][exp.categoria] += exp.valor
+        monthly[exp.date.month][exp.category] += exp.amount
 
     result = []
     for month in sorted(monthly.keys()):
         by_category = sorted(
-            [MonthlyCategoryItem(categoria=k, total=v) for k, v in monthly[month].items()],
+            [MonthlyCategoryItem(category=k, total=v) for k, v in monthly[month].items()],
             key=lambda x: x.total,
             reverse=True,
         )

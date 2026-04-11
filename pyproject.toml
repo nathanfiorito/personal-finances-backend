@@ -1,7 +1,7 @@
 [project]
-name = "finbot"
+name = "personal-finances-backend"
 version = "0.1.0"
-description = "Bot pessoal no Telegram para controle de despesas com IA"
+description = "API e bot Telegram para controle de despesas com IA"
 requires-python = ">=3.12"
 
 [tool.pytest.ini_options]
