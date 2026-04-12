@@ -69,8 +69,10 @@ class ProcessMessage:
             extracted.date.strftime("%d/%m/%Y")
             if extracted.date else "data não encontrada"
         )
+        type_label = "Receita 💚" if extracted.transaction_type == "income" else "Despesa 🔴"
         lines = [
             f"*{extracted.establishment or 'Estabelecimento desconhecido'}*",
+            f"Tipo: {type_label}",
             f"Valor: {amount_str}",
             f"Data: {date_str}",
             f"Categoria: {category_name}",

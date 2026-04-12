@@ -202,6 +202,7 @@ async def test_process_message_sends_confirmation_for_text():
     assert msg["chat_id"] == 123
     assert msg["buttons"] is not None  # confirmation keyboard was sent
     assert pending.get(123) is not None  # state stored
+    assert "Despesa 🔴" in msg["text"]  # outcome type label shown
 
 
 @pytest.mark.asyncio
@@ -219,6 +220,33 @@ async def test_process_message_sends_confirmation_for_image():
     )
     assert len(notifier.sent_messages) == 1
     assert pending.get(123) is not None
+
+
+@pytest.mark.asyncio
+async def test_process_message_shows_income_label_for_income_type():
+    """Confirmation message shows 'Receita' for income transactions."""
+    class IncomeLLM(StubLLMPort):
+        async def extract_from_text(self, text):
+            return ExtractedExpense(
+                amount=Decimal("1000.00"),
+                date=_dt.date(2026, 1, 15),
+                establishment="Employer",
+                entry_type="text",
+                transaction_type="income",
+                confidence=0.9,
+            )
+
+    notifier = StubNotifierPort()
+    use_case = ProcessMessage(
+        llm=IncomeLLM(),
+        category_repo=StubCategoryRepository(),
+        pending=StubPendingStatePort(),
+        notifier=notifier,
+    )
+    await use_case.execute(
+        ProcessMessageCommand(chat_id=123, entry_type="text", text="recebi salário")
+    )
+    assert "Receita 💚" in notifier.sent_messages[0]["text"]
 
 
 @pytest.mark.asyncio
