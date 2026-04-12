@@ -10,7 +10,6 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from src.config.settings import settings
-from src.routers import categories, expenses, export, reports, transactions
 from src.services.telegram import send_message
 from src.v2.bootstrap import build_use_cases, build_v2_router
 
@@ -160,13 +159,7 @@ async def log_request_timing(request: Request, call_next):
     return response
 
 
-app.include_router(transactions.router)
-app.include_router(expenses.router)  # 301 compat layer — keep until frontend is fully migrated
-app.include_router(categories.router)
-app.include_router(reports.router)
-app.include_router(export.router)
-
-# v2 — new hexagonal architecture (routes at /api/v2/...)
+# v2 — hexagonal architecture (routes at /api/v2/...)
 app.include_router(build_v2_router())
 
 

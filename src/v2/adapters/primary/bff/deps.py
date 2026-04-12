@@ -1,24 +1,62 @@
+import base64
+import json
+import logging
+import time
+
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from supabase import AsyncClient, acreate_client
 
+from src.config.settings import settings as _settings
 from src.v2.domain.exceptions import (
     CategoryNotFoundError,
     DomainError,
     ExpenseNotFoundError,
 )
 
+logger = logging.getLogger(__name__)
+
 _bearer = HTTPBearer()
+_auth_client: AsyncClient | None = None
+
+
+async def _get_auth_client() -> AsyncClient:
+    global _auth_client
+    if _auth_client is None:
+        _auth_client = await acreate_client(_settings.supabase_url, _settings.supabase_service_key)
+    return _auth_client
+
+
+def _is_token_expired(token: str) -> bool:
+    try:
+        payload = token.split(".")[1]
+        payload += "=" * (4 - len(payload) % 4)
+        data = json.loads(base64.b64decode(payload))
+        return data.get("exp", 0) < time.time()
+    except Exception:
+        return False
 
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(_bearer),
 ) -> dict:
-    """Validate Supabase JWT. Returns the decoded payload.
-
-    Delegates to the same logic as v1's deps.py to avoid duplication.
-    """
-    from src.routers.deps import get_current_user as _v1_get_current_user
-    return await _v1_get_current_user(credentials)
+    """Validate Supabase JWT and return the user object."""
+    token = credentials.credentials
+    try:
+        client = await _get_auth_client()
+        response = await client.auth.get_user(token)
+        return response.user
+    except Exception as e:
+        logger.debug("JWT validation failed: %s", e)
+        if _is_token_expired(token):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Token expirado",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido",
+        )
 
 
 def domain_exception_handler(exc: DomainError) -> HTTPException:
