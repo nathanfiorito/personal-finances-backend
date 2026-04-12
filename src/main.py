@@ -10,9 +10,10 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from src.config.settings import settings
-from src.handlers.message import handle_update
+# from src.handlers.message import handle_update  # v1 — kept for reference
 from src.routers import categories, expenses, export, reports, transactions
 from src.services.telegram import send_message
+from src.v2.bootstrap import build_use_cases, build_v2_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -106,6 +107,8 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from src.scheduler.reports import start_scheduler, stop_scheduler
+    # Wire v2 use cases
+    app.state.use_cases = await build_use_cases()
     start_scheduler()
     yield
     stop_scheduler()
@@ -164,6 +167,9 @@ app.include_router(categories.router)
 app.include_router(reports.router)
 app.include_router(export.router)
 
+# v2 — new hexagonal architecture (routes at /api/v2/...)
+app.include_router(build_v2_router())
+
 
 @app.get("/health")
 async def health() -> dict:
@@ -192,7 +198,9 @@ async def webhook(request: Request) -> dict:
         return {"ok": True}
 
     try:
-        await handle_update(update)
+        # v2 Telegram handler
+        from src.v2.adapters.primary.telegram.webhook import handle_update as handle_update_v2
+        await handle_update_v2(update, app.state.use_cases)
     except Exception:
         logger.exception("Error processing update: %s", update)
 
