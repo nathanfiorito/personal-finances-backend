@@ -1,4 +1,5 @@
-from datetime import date
+from __future__ import annotations
+
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -8,7 +9,6 @@ from fastapi.testclient import TestClient
 from src.v2.adapters.primary.bff.routers.export import router as export_router
 from src.v2.adapters.primary.bff.routers.reports import router as reports_router
 from src.v2.domain.use_cases.reports.get_monthly import MonthlyByCategoryItem, MonthlyItem
-from src.v2.domain.use_cases.reports.get_summary import SummaryItem
 
 
 def _app(use_cases: SimpleNamespace) -> FastAPI:
@@ -19,14 +19,6 @@ def _app(use_cases: SimpleNamespace) -> FastAPI:
     app.include_router(reports_router)
     app.include_router(export_router)
     return app
-
-
-class StubGetSummary:
-    async def execute(self, query):
-        return [
-            SummaryItem(category="Alimentação", total=Decimal("245.90")),
-            SummaryItem(category="Transporte", total=Decimal("123.50")),
-        ]
 
 
 class StubGetMonthly:
@@ -49,26 +41,9 @@ class StubExportCsv:
 
 def _default_uc():
     return SimpleNamespace(
-        get_summary=StubGetSummary(),
         get_monthly=StubGetMonthly(),
         export_csv=StubExportCsv(),
     )
-
-
-class TestSummary:
-    def test_returns_200_with_items(self):
-        client = TestClient(_app(_default_uc()))
-        resp = client.get("/api/v2/reports/summary?start=2024-01-01&end=2024-01-31")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert len(data) == 2
-        assert data[0]["category"] == "Alimentação"
-        assert data[0]["total"] == "245.90"
-
-    def test_requires_start_and_end(self):
-        client = TestClient(_app(_default_uc()))
-        resp = client.get("/api/v2/reports/summary?start=2024-01-01")
-        assert resp.status_code == 422
 
 
 class TestMonthly:

@@ -1,3 +1,4 @@
+from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
@@ -7,7 +8,6 @@ from src.v2.adapters.primary.bff.deps import (
     get_create_category,
     get_current_user,
     get_deactivate_category,
-    get_list_categories,
     get_update_category,
 )
 from src.v2.domain.entities.category import Category
@@ -26,14 +26,6 @@ class CategoryCreate(BaseModel):
 class CategoryPatch(BaseModel):
     name: str | None = None
     is_active: bool | None = None
-
-
-@router.get("", response_model=list[Category])
-async def list_categories(
-    _user=Depends(get_current_user),
-    use_case=Depends(get_list_categories),
-):
-    return await use_case.execute()
 
 
 @router.post("", response_model=Category, status_code=status.HTTP_201_CREATED)
