@@ -65,8 +65,7 @@ Creates a transaction manually (no AI extraction).
   "category_id": 1,
   "tax_id": null,
   "entry_type": "text",
-  "transaction_type": "expense",
-  "confidence": 1.0
+  "transaction_type": "outcome"
 }
 ```
 
@@ -194,7 +193,7 @@ Returns everything the Dashboard page needs in one call.
 
 Returns paginated transactions and the full active category list for the Expenses page.
 
-**Query params:** `start`, `end`, `category_id`, `transaction_type`, `page` (default `1`), `page_size` (default `20`, max `100`)
+**Query params:** `start`, `end`, `category_id`, `transaction_type` (`"income" | "outcome"`), `page` (default `1`), `page_size` (default `20`, max `100`)
 
 **Response `200 OK`:**
 ```json
@@ -222,7 +221,7 @@ class Expense:   # Domain entity; serialized as Transaction in API
     category_id: int | None
     tax_id: str | None
     entry_type: str      # "image" | "text" | "pdf"
-    transaction_type: str  # "expense" | "income"
+    transaction_type: str  # "outcome" | "income"
     confidence: float | None
     created_at: datetime
 ```
