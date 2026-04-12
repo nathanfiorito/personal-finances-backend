@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     signoz_otlp_endpoint: str = "https://signoz-otel.nathanfiorito.com.br"
     otel_service_name: str = "personal-finances-backend"
 
+    # Runtime environment — set to "development" locally to enable debug features
+    environment: str = "production"
 
 
 settings = Settings()

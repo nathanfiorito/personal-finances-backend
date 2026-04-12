@@ -19,5 +19,5 @@ target-version = "py312"
 select = ["E", "F", "I", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
-"src/agents/duplicate_checker.py" = ["E501"]
-"src/agents/extractor.py" = ["E501"]
+"src/v2/adapters/secondary/openrouter/llm_adapter.py" = ["E501"]  # prompt strings exceed line limit
+

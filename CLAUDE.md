@@ -4,90 +4,123 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Personal Finances** — personal Telegram bot for expense tracking. Receives payment receipts (photo, PDF, or free text), extracts and categorizes expenses using AI agents, and generates financial reports. Single-user, private use.
+**Personal Finances** — personal Telegram bot for expense tracking. Receives payment receipts (photo, PDF, or free text), extracts and categorizes expenses using AI, and exposes a REST API for the frontend. Single-user, private use.
 
 ## Stack
 
-- **Backend:** Python 3.12+ / FastAPI
+- **Backend:** Python 3.12+ / FastAPI, hexagonal (ports & adapters) architecture in `src/v2/`
 - **Bot:** httpx (direct HTTP calls to Telegram Bot API, webhook mode, not polling)
-- **LLM:** Claude Sonnet 4.6 (vision + reports) and Haiku 4.5 (text extraction + categorization + duplicate check) via **OpenRouter** (OpenAI-compatible API, not direct Anthropic API)
+- **LLM:** Claude Sonnet 4.6 (vision + reports) and Haiku 4.5 (text extraction + categorization + duplicate check) via **OpenRouter** (OpenAI-compatible API, not Anthropic direct)
 - **Database:** Supabase (PostgreSQL)
 - **Hosting:** Render (prod) + Cloudflare Tunnel (dev)
 - **Scheduler:** APScheduler (monthly auto-reports)
+- **Testing:** pytest + pytest-asyncio; architecture enforced by import-linter
 
 ## Commands
 
 ```bash
 # Setup
 python -m venv .venv
-source .venv/bin/activate
+source .venv/Scripts/activate   # Windows: Scripts; Linux/Mac: bin
 pip install -r requirements.txt
 cp .env.example .env
 
-# Run dev server
+# Run dev server (set ENVIRONMENT=development in .env to expose /openapi.json)
 uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Run tests
 pytest tests/
 
 # Run a single test file
-pytest tests/test_extractor.py -v
+pytest tests/test_webhook.py -v
+
+# Lint
+ruff check src/
 
 # Expose local server via Cloudflare Tunnel (dev webhook)
 cloudflared tunnel --url http://localhost:8000
-
-# Register Telegram webhook
-curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://<tunnel-url>/webhook", "secret_token": "<SECRET>"}'
 ```
 
 ## Architecture
 
-Modular monolith. Entry point: `src/main.py` (FastAPI app + webhook setup).
+Hexagonal (ports & adapters). Entry point: `src/main.py`.
 
-### Request Flow
+### Package layout
 
-1. Telegram sends POST to `/webhook` → `handlers/message.py` or `handlers/commands.py`
-2. Router in `handlers/` identifies input type (image/PDF/text/command)
-3. `agents/extractor.py` → calls OpenRouter with Sonnet 4.6 (images) or Haiku 4.5 (text) → returns structured JSON
-4. `agents/categorizer.py` → calls Haiku 4.5 → returns category (cached 5 min from DB)
-5. Bot sends confirmation via inline keyboard (`handlers/callback.py`)
-6. On user confirmation → `agents/duplicate_checker.py` → calls Haiku 4.5 to detect possible duplicates
-7. If no duplicate (or user overrides) → `services/database.py` persists to Supabase
-8. `agents/reporter.py` handles `/relatorio` commands and monthly cron
+```
+src/
+├── config/settings.py       — Pydantic settings (env vars)
+├── main.py                  — FastAPI app + lifespan + /webhook
+├── scheduler/reports.py     — APScheduler monthly auto-report
+└── services/
+    ├── llm.py               — OpenRouter HTTP client (retry + tracing)
+    ├── telegram.py          — Telegram Bot API helpers
+    └── tracing.py           — OpenTelemetry span helpers
 
-### Key Design Decisions
+src/v2/                      — Hexagonal architecture
+├── bootstrap.py             — Wires adapters → use cases; builds FastAPI router
+├── domain/
+│   ├── entities/            — Expense, Category (dataclasses, no framework imports)
+│   ├── exceptions.py        — Domain error types
+│   ├── ports/               — ABC interfaces (ExpenseRepository, LLMPort, etc.)
+│   └── use_cases/           — All business logic (expenses/, categories/, reports/, telegram/)
+└── adapters/
+    ├── primary/
+    │   ├── bff/             — REST API (/api/v2/...) with JWT auth
+    │   └── telegram/        — Webhook router + message/command/callback handlers
+    └── secondary/
+        ├── supabase/        — Supabase expense + category repositories
+        ├── openrouter/      — OpenRouter LLM adapter
+        ├── telegram_api/    — Telegram notifier adapter
+        └── memory/          — In-memory pending state (TTL 10 min)
+```
 
-- **OpenRouter, not Anthropic direct:** Use OpenAI-compatible SDK pointed at `openrouter.ai/api/v1`. Model IDs: `anthropic/claude-sonnet-4-6` and `anthropic/claude-haiku-4-5`.
-- **Two models:** Sonnet 4.6 for image vision and report generation; Haiku 4.5 for categorization, plain-text extraction, and duplicate checking (cost optimization).
-- **Mandatory confirmation:** Never persist an expense without explicit user confirmation via Telegram inline keyboard. Temporary state between extraction and confirmation is held in-memory (dict keyed by `chat_id`, TTL 10 min) in `models/pending.py`.
-- **Webhook + secret_token:** All requests to `/webhook` must be validated via `X-Telegram-Bot-Api-Secret-Token` header. Access is additionally restricted to a single `TELEGRAM_ALLOWED_CHAT_ID`.
-- **Duplicate detection:** Before saving, Haiku 4.5 compares the new expense against the 3 most recent expenses. If a duplicate is detected, the user sees a warning with options to save anyway or cancel.
+Architecture contracts are enforced by import-linter (see `tests/v2/test_architecture.py`):
+- Domain never imports from adapters
+- Secondary adapters never import from primary adapters
+- Entities/ports never import from use cases
 
-### Bot Commands
+### Request flow (Telegram bot)
+
+1. POST to `/webhook` → v2 webhook handler (`src/v2/adapters/primary/telegram/webhook.py`)
+2. Routes to `handle_message`, `handle_command`, or `handle_callback`
+3. `ProcessMessage` use case: calls `LLMPort.extract_expense()` → structured data
+4. Bot sends confirmation via Telegram inline keyboard
+5. On confirmation: `ConfirmExpense` use case → `LLMPort.check_duplicate()` → `ExpenseRepository.save()`
+
+### REST API
+
+Routes at `/api/v2/...`, all protected by Supabase JWT:
+- `GET/POST /api/v2/transactions`, `GET/PUT/DELETE /api/v2/transactions/{id}`
+- `GET/POST /api/v2/categories`, `PATCH/DELETE /api/v2/categories/{id}`
+- `GET /api/v2/reports/summary`, `GET /api/v2/reports/monthly`
+- `GET /api/v2/export/csv`
+
+### Key design decisions
+
+- **OpenRouter, not Anthropic direct:** Use OpenAI-compatible SDK at `openrouter.ai/api/v1`. Model IDs: `anthropic/claude-sonnet-4-6` and `anthropic/claude-haiku-4-5`.
+- **Two models:** Sonnet 4.6 for image vision and reports; Haiku 4.5 for text extraction, categorization, duplicate checking (cost optimization).
+- **Mandatory confirmation:** Never persist without explicit user confirmation. Pending state held in `InMemoryPendingStateAdapter` (TTL 10 min).
+- **Webhook security:** Validate `X-Telegram-Bot-Api-Secret-Token` header; restrict to single `TELEGRAM_ALLOWED_CHAT_ID`.
+- **OpenAPI hidden in production:** `openapi_url=None` when `ENVIRONMENT=production` (default). Set `ENVIRONMENT=development` to expose `/openapi.json`.
+
+### Bot commands
 
 | Command | Description |
 |---|---|
 | `/start` | Welcome message |
-| `/ajuda` | List of available commands |
-| `/relatorio [semana\|anterior\|mes\|MM/AAAA]` | Generate expense report for a period |
-| `/exportar [semana\|anterior\|mes\|MM/AAAA]` | Export expenses as CSV file |
-| `/categorias` | List active expense categories |
-| `/categorias add <nome>` | Add a new custom category |
+| `/ajuda` | List all commands |
+| `/relatorio [semana\|anterior\|mes\|MM/AAAA]` | Expense report for a period |
+| `/exportar [semana\|anterior\|mes\|MM/AAAA]` | Export expenses as CSV |
+| `/categorias` | List active categories |
+| `/categorias add <name>` | Add a new category |
 
-### Database Schema (Supabase/PostgreSQL)
+### Database schema
 
-**Table `expenses`** — columns: `id` (UUID), `valor` (DECIMAL), `data` (DATE), `estabelecimento`, `descricao`, `categoria_id` (INT, FK → `categories.id`), `cnpj`, `tipo_entrada` (`'imagem'|'texto'|'pdf'`), `confianca` (0.00–1.00), `dados_raw` (JSONB), `created_at`, `updated_at`.
+**Table `transactions`** — `id` (UUID), `amount` (DECIMAL), `date` (DATE), `establishment`, `description`, `category_id` (INT FK), `tax_id`, `entry_type` (`'image'|'text'|'pdf'`), `transaction_type` (`'expense'|'income'`), `confidence` (0.00–1.00), `raw_data` (JSONB), `created_at`, `updated_at`.
 
-Indexes on `data`, `categoria_id`, and `(data, categoria_id)` for report queries.
-
-**Table `categories`** — columns: `id` (SERIAL), `nome` (VARCHAR, UNIQUE), `ativo` (BOOLEAN), `created_at`.
-
-### Default Categories
-
-Alimentação, Educação, Lazer, Moradia, Outros, Pets, Saúde, Serviços, Transporte, Vestuário.
+**Table `categories`** — `id` (SERIAL), `name` (VARCHAR UNIQUE), `is_active` (BOOLEAN), `created_at`.
 
 ## Environment Variables
 
-See `.env.example`. Key vars: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_ALLOWED_CHAT_ID`, `OPENROUTER_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`.
+See `.env.example`. Key vars: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_ALLOWED_CHAT_ID`, `OPENROUTER_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `ENVIRONMENT` (default: `production`).
