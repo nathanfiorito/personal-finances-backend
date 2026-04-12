@@ -1,18 +1,14 @@
 # API Reference — Personal Finances
 
-Documento de referência para o desenvolvimento do frontend. Cobre endpoints HTTP, modelos de dados, schema do banco e operações disponíveis.
+Reference for frontend development. Covers HTTP endpoints, data models, and Telegram bot commands.
 
 ---
 
 ## HTTP Endpoints
 
-O backend expõe endpoints para o Telegram Bot e uma REST API para o frontend, todos protegidos adequadamente.
-
 ### `GET /health`
 
-Health check da aplicação.
-
-**Request:** sem parâmetros
+Application health check.
 
 **Response `200 OK`:**
 ```json
@@ -23,56 +19,56 @@ Health check da aplicação.
 
 ### `POST /webhook`
 
-Recebe atualizações do Telegram. Uso exclusivo pelo Telegram Bot API.
+Receives Telegram updates. Used exclusively by the Telegram Bot API.
 
-**Headers obrigatórios:**
+**Required header:**
 ```
 X-Telegram-Bot-Api-Secret-Token: <TELEGRAM_WEBHOOK_SECRET>
 ```
 
-**Response `200 OK`:** `{ "ok": true }`  
-**Response `403 Forbidden`:** token inválido ou IP fora dos ranges do Telegram  
-**Rate limit:** 30 req/min por IP
+**Response `200 OK`:** `{ "ok": true }`
+**Response `403 Forbidden`:** invalid token
+**Rate limit:** 30 req/min per IP
 
 ---
 
-## REST API — Frontend
+## REST API — Frontend (`/api/v2/...`)
 
-Todas as rotas `/api/*` exigem autenticação via **Supabase Auth JWT**:
+All `/api/v2/*` routes require **Supabase Auth JWT** authentication:
 
 ```
 Authorization: Bearer <jwt>
 ```
 
-| Código | Situação |
+| Code | Situation |
 |---|---|
-| `401` | Header ausente, malformado ou token inválido |
-| `403` | Token expirado |
+| `401` | Header missing, malformed, or invalid token |
+| `403` | Token expired |
 
-**CORS:** aceita origens `*.nathanfiorito.com.br` com métodos `GET, POST, PUT, PATCH, DELETE`.
+**CORS:** accepts origins matching `*.nathanfiorito.com.br` with methods `GET, POST, PUT, PATCH, DELETE`.
 
 ---
 
-### Despesas — `src/routers/expenses.py`
+### Transactions — `src/v2/adapters/primary/bff/routers/transactions.py`
 
-#### `GET /api/expenses`
+#### `GET /api/v2/transactions`
 
-Lista despesas com paginação e filtros opcionais.
+List transactions with optional filters and pagination.
 
 **Query params:**
 
-| Param | Tipo | Default | Descrição |
+| Param | Type | Default | Description |
 |---|---|---|---|
-| `start` | `YYYY-MM-DD` | — | Início do período |
-| `end` | `YYYY-MM-DD` | — | Fim do período |
-| `categoria_id` | `int` | — | Filtrar por categoria |
-| `page` | `int` | `1` | Página (≥ 1) |
-| `page_size` | `int` | `20` | Itens por página (max 100) |
+| `start` | `YYYY-MM-DD` | — | Period start |
+| `end` | `YYYY-MM-DD` | — | Period end |
+| `category_id` | `int` | — | Filter by category |
+| `page` | `int` | `1` | Page number (≥ 1) |
+| `page_size` | `int` | `20` | Items per page (max 100) |
 
 **Response `200 OK`:**
 ```json
 {
-  "items": [ ...Expense ],
+  "items": [ ...Transaction ],
   "total": 42,
   "page": 1,
   "page_size": 20
@@ -81,120 +77,122 @@ Lista despesas com paginação e filtros opcionais.
 
 ---
 
-#### `GET /api/expenses/{id}`
+#### `GET /api/v2/transactions/{id}`
 
-Retorna uma despesa pelo UUID.
+Returns a single transaction by UUID.
 
-**Response `200 OK`:** `Expense`  
-**Response `404`:** despesa não encontrada
+**Response `200 OK`:** `Transaction`
+**Response `404`:** not found
 
 ---
 
-#### `POST /api/expenses`
+#### `POST /api/v2/transactions`
 
-Cria uma despesa manualmente (sem fluxo de extração por IA).
+Creates a transaction manually (no AI extraction).
 
 **Body:**
 ```json
 {
-  "valor": "50.00",
-  "data": "2025-01-15",
-  "estabelecimento": "Mercado",
-  "descricao": "Compras",
-  "categoria_id": 1,
-  "cnpj": null,
-  "tipo_entrada": "texto"
+  "amount": "50.00",
+  "date": "2025-01-15",
+  "establishment": "Mercado",
+  "description": "Compras",
+  "category_id": 1,
+  "tax_id": null,
+  "entry_type": "text",
+  "transaction_type": "expense",
+  "confidence": 1.0
 }
 ```
 
-**Response `201 Created`:** `Expense`
+**Response `201 Created`:** `Transaction`
 
 ---
 
-#### `PUT /api/expenses/{id}`
+#### `PUT /api/v2/transactions/{id}`
 
-Atualiza campos de uma despesa existente.
+Replaces a transaction (full update). Unset fields keep their previous values.
 
-**Body:** qualquer subconjunto dos campos de `POST /api/expenses`  
-**Response `200 OK`:** `Expense` atualizada  
-**Response `404`:** despesa não encontrada
-
----
-
-#### `DELETE /api/expenses/{id}`
-
-Remove uma despesa.
-
-**Response `204 No Content`**  
-**Response `404`:** despesa não encontrada
+**Body:** same shape as `POST /api/v2/transactions` (all fields optional)
+**Response `200 OK`:** updated `Transaction`
+**Response `404`:** not found
 
 ---
 
-### Categorias — `src/routers/categories.py`
+#### `DELETE /api/v2/transactions/{id}`
 
-#### `GET /api/categories`
+Deletes a transaction.
 
-Lista categorias ativas (`ativo = true`).
+**Response `204 No Content`**
+**Response `404`:** not found
+
+---
+
+### Categories — `src/v2/adapters/primary/bff/routers/categories.py`
+
+#### `GET /api/v2/categories`
+
+List active categories (`is_active = true`).
 
 **Response `200 OK`:**
 ```json
-[{ "id": 1, "nome": "Alimentação", "ativo": true }]
+[{ "id": 1, "name": "Alimentação", "is_active": true }]
 ```
 
 ---
 
-#### `POST /api/categories`
+#### `POST /api/v2/categories`
 
-Cria uma nova categoria.
+Create a new category.
 
-**Body:** `{ "nome": "Nova Categoria" }`  
-**Response `201 Created`:** `CategoryOut`  
-**Response `409 Conflict`:** nome duplicado
-
----
-
-#### `PATCH /api/categories/{id}`
-
-Atualização parcial — renomear e/ou ativar/desativar.
-
-**Body:** `{ "nome"?: str, "ativo"?: bool }`  
-**Response `200 OK`:** `CategoryOut`  
-**Response `404`:** categoria não encontrada
+**Body:** `{ "name": "Nova Categoria" }`
+**Response `201 Created`:** `Category`
+**Response `409 Conflict`:** duplicate name
 
 ---
 
-#### `DELETE /api/categories/{id}`
+#### `PATCH /api/v2/categories/{id}`
 
-Desativa a categoria (`ativo = false`). Não remove o registro.
+Partial update — rename and/or activate/deactivate.
 
-**Response `204 No Content`**  
-**Response `404`:** categoria não encontrada
+**Body:** `{ "name"?: str, "is_active"?: bool }`
+**Response `200 OK`:** updated `Category`
+**Response `404`:** not found
 
 ---
 
-### Relatórios — `src/routers/reports.py`
+#### `DELETE /api/v2/categories/{id}`
 
-#### `GET /api/reports/summary`
+Deactivates a category (`is_active = false`). Does not delete the record.
 
-Totais gastos por categoria num período, ordenados por valor desc.
+**Response `204 No Content`**
+**Response `404`:** not found
 
-**Query params obrigatórios:** `start`, `end` (`YYYY-MM-DD`)
+---
+
+### Reports — `src/v2/adapters/primary/bff/routers/reports.py`
+
+#### `GET /api/v2/reports/summary`
+
+Total spent per category in a period, sorted by amount desc.
+
+**Required query params:** `start`, `end` (`YYYY-MM-DD`)
 
 **Response `200 OK`:**
 ```json
 [
-  { "categoria": "Alimentação", "total": "245.90" },
-  { "categoria": "Transporte", "total": "123.50" }
+  { "category": "Alimentação", "total": "245.90" },
+  { "category": "Transporte", "total": "123.50" }
 ]
 ```
 
 ---
 
-#### `GET /api/reports/monthly`
+#### `GET /api/v2/reports/monthly`
 
-Breakdown mensal — retorna apenas meses com ao menos uma despesa.
+Monthly breakdown — only returns months with at least one transaction.
 
-**Query params:** `year` (int, default: ano corrente)
+**Query params:** `year` (int, default: current year)
 
 **Response `200 OK`:**
 ```json
@@ -203,7 +201,7 @@ Breakdown mensal — retorna apenas meses com ao menos uma despesa.
     "month": 1,
     "total": "369.40",
     "by_category": [
-      { "categoria": "Alimentação", "total": "245.90" }
+      { "category": "Alimentação", "total": "245.90" }
     ]
   }
 ]
@@ -211,17 +209,17 @@ Breakdown mensal — retorna apenas meses com ao menos uma despesa.
 
 ---
 
-### Exportação — `src/routers/export.py`
+### Export — `src/v2/adapters/primary/bff/routers/export.py`
 
-#### `GET /api/export/csv`
+#### `GET /api/v2/export/csv`
 
-Exporta despesas do período como arquivo CSV.
+Export transactions for a period as a CSV file.
 
-**Query params obrigatórios:** `start`, `end` (`YYYY-MM-DD`)
+**Required query params:** `start`, `end` (`YYYY-MM-DD`)
 
-**Response `200 OK`:** arquivo CSV com header:
+**Response `200 OK`:** CSV file with header:
 ```
-id,data,estabelecimento,descricao,categoria,valor,cnpj,tipo_entrada,confianca,created_at
+id,date,establishment,description,category,amount,tax_id,entry_type,confidence,created_at
 ```
 
 **Response header:**
@@ -231,369 +229,133 @@ Content-Disposition: attachment; filename=expenses_<start>_<end>.csv
 
 ---
 
-## Schema do Banco de Dados
+## Data Models
 
-### Tabela `expenses`
-
-| Coluna | Tipo | Constraints | Descrição |
-|---|---|---|---|
-| `id` | `UUID` | PK, `DEFAULT gen_random_uuid()` | Identificador único |
-| `valor` | `DECIMAL(10,2)` | `NOT NULL` | Valor da despesa |
-| `data` | `DATE` | `NOT NULL` | Data da transação |
-| `estabelecimento` | `VARCHAR(255)` | nullable | Nome do estabelecimento |
-| `descricao` | `TEXT` | nullable | Descrição do que foi comprado/pago |
-| `categoria_id` | `INT` | `NOT NULL`, FK → `categories(id)` | ID da categoria |
-| `cnpj` | `VARCHAR(18)` | nullable | CNPJ no formato `XX.XXX.XXX/XXXX-XX` |
-| `tipo_entrada` | `VARCHAR(20)` | `NOT NULL`, CHECK IN `('imagem','texto','pdf')` | Como a despesa foi registrada |
-| `confianca` | `DECIMAL(3,2)` | CHECK `0.00–1.00` | Score de confiança da extração por IA |
-| `dados_raw` | `JSONB` | `DEFAULT '{}'` | JSON bruto retornado pelo extrator |
-| `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp de criação |
-| `updated_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp de atualização |
-
-**Indexes:** `data`, `categoria_id`, `(data, categoria_id)`
-
----
-
-### Tabela `categories`
-
-| Coluna | Tipo | Constraints | Descrição |
-|---|---|---|---|
-| `id` | `SERIAL` | PK | Identificador único |
-| `nome` | `VARCHAR(100)` | `UNIQUE NOT NULL` | Nome da categoria |
-| `ativo` | `BOOLEAN` | `DEFAULT TRUE` | Se a categoria está ativa |
-| `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp de criação |
-
-**Categorias padrão (seed):**
-`Alimentação`, `Educação`, `Lazer`, `Moradia`, `Outros`, `Pets`, `Saúde`, `Serviços`, `Transporte`, `Vestuário`
-
----
-
-## Query de Despesas com Categoria (JOIN)
-
-Para obter despesas com o nome da categoria, use o join implícito do Supabase:
-
-```sql
-SELECT
-    e.id,
-    e.valor,
-    e.data,
-    e.estabelecimento,
-    e.descricao,
-    c.nome AS categoria,
-    e.categoria_id,
-    e.cnpj,
-    e.tipo_entrada,
-    e.confianca,
-    e.created_at
-FROM expenses e
-JOIN categories c ON e.categoria_id = c.id
-WHERE e.data >= :start AND e.data <= :end
-ORDER BY e.data ASC;
-```
-
-Via SDK Supabase:
-```python
-client.table("expenses").select("*, categories(nome)").gte("data", start).lte("data", end).order("data").execute()
-```
-
----
-
-## Modelos de Dados (Pydantic)
-
-### `ExtractedExpense` — dados extraídos pelo LLM (pré-save)
+### `Transaction` — persisted expense
 
 ```python
-class ExtractedExpense(BaseModel):
-    valor: Decimal          # positivo, max 999999.99
-    data: date
-    estabelecimento: str | None = None
-    descricao: str | None = None
-    cnpj: str | None = None  # auto-formatado: "XX.XXX.XXX/XXXX-XX"
-    tipo_entrada: Literal["imagem", "texto", "pdf"]
-    confianca: float = 0.5   # 0.0 a 1.0
-    dados_raw: dict = {}
-```
-
-### `Expense` — despesa persistida no banco
-
-```python
-class Expense(BaseModel):
-    id: UUID
-    valor: Decimal
-    data: date
-    estabelecimento: str | None
-    descricao: str | None
-    categoria: str           # nome da categoria (via join)
-    categoria_id: int | None
-    cnpj: str | None
-    tipo_entrada: str
-    confianca: float | None
+@dataclass
+class Expense:   # Domain entity; serialized as Transaction in API
+    id: str
+    amount: Decimal
+    date: date
+    establishment: str | None
+    description: str | None
+    category: str        # category name (via join)
+    category_id: int | None
+    tax_id: str | None
+    entry_type: str      # "image" | "text" | "pdf"
+    transaction_type: str  # "expense" | "income"
+    confidence: float | None
     created_at: datetime
 ```
 
----
+### `Category`
 
-## Operações do Banco (`services/database.py`)
-
-### `save_expense(expense, categoria) -> str`
-
-Salva uma despesa confirmada. Resolve o `categoria_id` a partir do nome.
-
-**Campos inseridos em `expenses`:**
 ```python
-{
-    "valor": str(expense.valor),
-    "data": expense.data.isoformat(),
-    "estabelecimento": expense.estabelecimento,
-    "descricao": expense.descricao,
-    "categoria_id": <id da categoria>,
-    "cnpj": expense.cnpj,
-    "tipo_entrada": expense.tipo_entrada,
-    "confianca": float(expense.confianca),
-    "dados_raw": expense.dados_raw
-}
-```
-
-**Retorna:** UUID da despesa criada (string)
-
----
-
-### `get_expenses_by_period(start: date, end: date) -> list[Expense]`
-
-Busca despesas em um intervalo de datas. Inclui join com `categories`.
-
-**Query:** `data >= start AND data <= end`, ordenado por `data ASC`
-
----
-
-### `get_recent_expenses(limit: int = 3) -> list[Expense]`
-
-Retorna as N despesas mais recentes, ordenadas por `created_at DESC`. Usado pelo Duplicate Checker.
-
----
-
-### `get_totals_by_category(start: date, end: date) -> dict[str, Decimal]`
-
-Retorna o total gasto por categoria no período. Calculado em Python a partir de `get_expenses_by_period`.
-
-**Retorno:**
-```python
-{
-    "Alimentação": Decimal("245.90"),
-    "Transporte": Decimal("123.50"),
-    ...
-}
+@dataclass
+class Category:
+    id: int
+    name: str
+    is_active: bool
 ```
 
 ---
 
-### `get_active_categories() -> list[str]`
+## Telegram Bot Commands
 
-Retorna nomes de todas as categorias com `ativo = true`, ordenadas por nome. Usado pelo bot.
-
----
-
-### `add_category(nome: str) -> None`
-
-Insere uma nova categoria na tabela `categories`. Usado pelo bot.
-
----
-
-### `get_expenses_paginated(start, end, categoria_id, page, page_size) -> tuple[list[Expense], int]`
-
-Lista despesas com filtros opcionais e paginação. Retorna `(items, total)`. Usado pela REST API.
-
----
-
-### `get_expense_by_id(expense_id: str) -> Expense | None`
-
-Busca uma despesa pelo UUID. Retorna `None` se não encontrada.
-
----
-
-### `create_expense_direct(record: dict) -> Expense`
-
-Insere uma despesa diretamente no banco (sem fluxo de IA). Usado pela REST API.
-
----
-
-### `update_expense(expense_id: str, data: dict) -> Expense | None`
-
-Atualiza campos de uma despesa. Retorna `None` se não encontrada.
-
----
-
-### `delete_expense(expense_id: str) -> bool`
-
-Remove uma despesa. Retorna `False` se não encontrada.
-
----
-
-### `get_all_categories() -> list[dict]`
-
-Retorna todas as categorias ativas (`ativo = true`) com `id`, `nome` e `ativo`. Usado pela REST API.
-
----
-
-### `create_category_full(nome: str) -> dict`
-
-Insere uma categoria e retorna o registro completo (`id`, `nome`, `ativo`).
-
----
-
-### `update_category(category_id: int, data: dict) -> dict | None`
-
-Atualiza campos de uma categoria. Retorna `None` se não encontrada.
-
----
-
-### `deactivate_category(category_id: int) -> bool`
-
-Seta `ativo = false` numa categoria. Retorna `False` se não encontrada.
-
----
-
-### `get_expenses_by_year(year: int) -> list[Expense]`
-
-Atalho para `get_expenses_by_period(date(year,1,1), date(year,12,31))`.
-
----
-
-## Comandos do Bot (Referência Completa)
-
-| Comando | Parâmetros | Comportamento | Período padrão |
+| Command | Parameters | Behavior | Default period |
 |---|---|---|---|
-| `/start` | — | Mensagem de boas-vindas | — |
-| `/ajuda` | — | Lista todos os comandos | — |
-| `/relatorio` | `[periodo]` | Gera relatório HTML com breakdown por categoria + insight de IA | mês corrente |
-| `/exportar` | `[periodo]` | Envia arquivo CSV com despesas do período | mês corrente |
-| `/categorias` | — | Lista categorias ativas do banco | — |
-| `/categorias add <nome>` | `<nome>` | Adiciona nova categoria, invalida cache | — |
+| `/start` | — | Welcome message | — |
+| `/ajuda` | — | List all commands | — |
+| `/relatorio` | `[period]` | HTML report with category breakdown + AI insight | current month |
+| `/exportar` | `[period]` | CSV file of transactions | current month |
+| `/categorias` | — | List active categories | — |
+| `/categorias add <name>` | `<name>` | Add a new category | — |
 
-**Formatos de período aceitos:**
-| Token | Intervalo |
+**Period formats:**
+| Token | Range |
 |---|---|
-| *(vazio)* ou `mes` | 1º dia do mês corrente até hoje |
-| `semana` | últimos 7 dias |
-| `anterior` | mês anterior completo |
-| `MM/AAAA` | mês específico (ex: `03/2025`) |
+| *(empty)* or `mes` | 1st of current month to today |
+| `semana` | last 7 days |
+| `anterior` | previous full month |
+| `MM/AAAA` | specific month (e.g. `03/2025`) |
 
 ---
 
-## Callbacks de Inline Keyboard
+## Inline Keyboard Callbacks
 
-| `callback_data` | Ação |
+| `callback_data` | Action |
 |---|---|
-| `confirm` | Inicia verificação de duplicatas, depois salva |
-| `force_confirm` | Salva sem verificação de duplicatas |
-| `cancel` | Descarta a despesa pendente |
-| `edit_category` | Exibe teclado de seleção de categoria |
-| `set_category:<nome>` | Atualiza categoria da despesa pendente e volta para confirmação |
+| `confirm` | Run duplicate check, then save expense |
+| `force_confirm` | Save without duplicate check |
+| `cancel` | Discard pending expense |
+| `edit_category` | Show category selection keyboard |
+| `set_category:<id>:<name>` | Update pending expense category, return to confirmation |
 
 ---
 
-## Relatório — Estrutura de Saída
+## Report Output Format
 
-O comando `/relatorio` retorna HTML formatado (parse_mode HTML do Telegram) com:
+The `/relatorio` command returns Telegram HTML (`parse_mode=HTML`):
 
 ```
-📊 Relatório — <período>
+📊 Report — <period>
 
 💰 Total: R$ 1.234,56
-📦 <N> transações
+📦 <N> transactions
 
-Por categoria:
+By category:
 🍽️ Alimentação: R$ 456,78 (37%)
 🚗 Transporte: R$ 234,56 (19%)
 ...
 
-🏪 Top estabelecimentos:
+🏪 Top establishments:
 • Mercado Extra (5x)
 • Shell (3x)
 • iFood (2x)
 
-💡 <insight gerado pelo Sonnet 4.6>
+💡 <2-sentence insight from Sonnet 4.6>
 ```
-
-**Emojis por categoria:**
-| Categoria | Emoji |
-|---|---|
-| Alimentação | 🍽️ |
-| Transporte | 🚗 |
-| Moradia | 🏠 |
-| Saúde | 💊 |
-| Educação | 📚 |
-| Lazer | 🎮 |
-| Vestuário | 👕 |
-| Serviços | 🔧 |
-| Pets | 🐾 |
-| Outros | 📦 |
 
 ---
 
-## CSV — Estrutura de Saída
+## CSV Output Format
 
-O comando `/exportar` gera um CSV com UTF-8 BOM (compatível com Excel).
+The `/exportar` command generates a UTF-8 BOM CSV (Excel-compatible).
 
-**Campos (cabeçalho):**
+**Header:**
 ```
-data,valor,estabelecimento,categoria,descricao,cnpj,tipo_entrada
-```
-
-**Exemplo de linha:**
-```
-2025-03-15,45.90,Supermercado Extra,Alimentação,Compras do mês,,imagem
+date,amount,establishment,category,description,tax_id,entry_type
 ```
 
-**Nome do arquivo:** `despesas_YYYY-MM-DD_YYYY-MM-DD.csv`
+**Filename:** `despesas_YYYY-MM-DD_YYYY-MM-DD.csv`
 
 ---
 
-## Variáveis de Ambiente
+## Pending State (Telegram Bot)
 
-| Variável | Obrigatório | Padrão | Descrição |
+Between extraction and user confirmation, the pending expense is held in memory:
+
+- One pending expense per `chat_id` at a time
+- Automatically expires after 10 minutes
+- Cleared on confirm, cancel, or timeout
+- Implemented by `InMemoryPendingStateAdapter` (`src/v2/adapters/secondary/memory/`)
+
+---
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
 |---|---|---|---|
-| `TELEGRAM_BOT_TOKEN` | Sim | — | Token do bot (@BotFather) |
-| `TELEGRAM_WEBHOOK_SECRET` | Sim | — | Secret para validar webhook |
-| `TELEGRAM_ALLOWED_CHAT_ID` | Sim | — | chat_id do usuário autorizado |
-| `OPENROUTER_API_KEY` | Sim | — | API key do OpenRouter |
-| `OPENROUTER_BASE_URL` | Não | `https://openrouter.ai/api/v1` | Base URL do OpenRouter |
-| `MODEL_VISION` | Não | `anthropic/claude-sonnet-4-6` | Modelo para visão e relatórios |
-| `MODEL_FAST` | Não | `anthropic/claude-haiku-4-5` | Modelo para texto e categorização |
-| `SUPABASE_URL` | Sim | — | URL do projeto Supabase |
-| `SUPABASE_SERVICE_KEY` | Sim | — | Chave service role do Supabase |
-
----
-
-## Agentes de IA — Resumo
-
-| Agente | Arquivo | Modelo | max_tokens | Entrada | Saída |
-|---|---|---|---|---|---|
-| Extrator (imagem) | `agents/extractor.py` | Sonnet 4.6 | 512 | Imagem base64 | JSON: valor, data, estabelecimento, cnpj, confiança |
-| Extrator (texto) | `agents/extractor.py` | Haiku 4.5 | 256 | Texto livre | JSON: valor, data, estabelecimento, descrição, confiança |
-| Extrator (PDF) | `agents/extractor.py` | Haiku 4.5 ou Sonnet 4.6 | 256/512 | PDF (texto extraído ou imagem) | JSON: mesmos campos |
-| Categorizador | `agents/categorizer.py` | Haiku 4.5 | 20 | ExtractedExpense | Nome da categoria |
-| Verificador duplicatas | `agents/duplicate_checker.py` | Haiku 4.5 | 80 | Nova despesa + 3 recentes | `"OK"` ou `"DUPLICATA: <motivo>"` |
-| Gerador de relatório | `agents/reporter.py` | Sonnet 4.6 | 200 | Totais por categoria, top estabelecimentos | Texto em português (2 frases) |
-
----
-
-## Estado Temporário (Pending Store)
-
-Entre a extração e a confirmação do usuário, a despesa fica armazenada em memória:
-
-```python
-# src/models/pending.py
-_store: dict[int, _PendingExpense]  # keyed by chat_id
-
-class _PendingExpense:
-    extracted: ExtractedExpense
-    categoria: str
-    message_id: int      # ID da mensagem de confirmação no Telegram
-    created_at: datetime
-    # TTL: 10 minutos
-```
-
-- Uma despesa pendente por `chat_id` por vez
-- Expirada automaticamente após 10 minutos
-- Deletada ao confirmar, cancelar, ou timeout
+| `TELEGRAM_BOT_TOKEN` | Yes | — | Bot token from @BotFather |
+| `TELEGRAM_WEBHOOK_SECRET` | Yes | — | Secret to validate webhook requests |
+| `TELEGRAM_ALLOWED_CHAT_ID` | Yes | — | Authorized user's chat_id |
+| `OPENROUTER_API_KEY` | Yes | — | OpenRouter API key |
+| `OPENROUTER_BASE_URL` | No | `https://openrouter.ai/api/v1` | OpenRouter base URL |
+| `MODEL_VISION` | No | `anthropic/claude-sonnet-4-6` | Model for vision + reports |
+| `MODEL_FAST` | No | `anthropic/claude-haiku-4-5` | Model for text + categorization |
+| `SUPABASE_URL` | Yes | — | Supabase project URL |
+| `SUPABASE_SERVICE_KEY` | Yes | — | Supabase service role key |
+| `SIGNOZ_OTLP_ENDPOINT` | No | — | SigNoz OTLP endpoint for observability |
+| `OTEL_SERVICE_NAME` | No | `personal-finances` | Service name for OTLP traces |
