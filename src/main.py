@@ -112,9 +112,14 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
 
 
-app = FastAPI(title="Personal Finances", docs_url=None, redoc_url=None, lifespan=lifespan)
-# TODO(security/F-01): Disable OpenAPI schema in production to avoid exposing full API map to unauthenticated users.  # noqa: E501
-# Add openapi_url=None to the FastAPI constructor above.
+_is_production = settings.environment == "production"
+app = FastAPI(
+    title="Personal Finances",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None if _is_production else "/openapi.json",
+    lifespan=lifespan,
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -136,16 +141,12 @@ app.add_middleware(
 )
 
 
-# TODO(security/F-04): Add security headers middleware below.
-# response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
-# response.headers["X-Content-Type-Options"] = "nosniff"
-# response.headers["X-Frame-Options"] = "DENY"
-# response.headers["Referrer-Policy"] = "no-referrer"
-
-
 @app.middleware("http")
 async def log_request_timing(request: Request, call_next):
-    """Log every request with method, path, status code and total processing time."""
+    """Log every request with method, path, status code and total processing time.
+
+    Also injects security headers on every response.
+    """
     start = time.perf_counter()
     response = await call_next(request)
     elapsed_ms = (time.perf_counter() - start) * 1000
@@ -156,6 +157,10 @@ async def log_request_timing(request: Request, call_next):
         response.status_code,
         elapsed_ms,
     )
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
     return response
 
 
