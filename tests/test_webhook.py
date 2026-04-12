@@ -225,3 +225,23 @@ class TestHealth:
         response = client.get("/health")
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
+
+
+# --- Security headers ---
+
+class TestSecurityHeaders:
+    def test_hsts_present(self):
+        response = client.get("/health")
+        assert "strict-transport-security" in response.headers
+
+    def test_x_content_type_options(self):
+        response = client.get("/health")
+        assert response.headers.get("x-content-type-options") == "nosniff"
+
+    def test_x_frame_options(self):
+        response = client.get("/health")
+        assert response.headers.get("x-frame-options") == "DENY"
+
+    def test_referrer_policy(self):
+        response = client.get("/health")
+        assert response.headers.get("referrer-policy") == "no-referrer"
