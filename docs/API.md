@@ -51,41 +51,6 @@ Authorization: Bearer <jwt>
 
 ### Transactions — `src/v2/adapters/primary/bff/routers/transactions.py`
 
-#### `GET /api/v2/transactions`
-
-List transactions with optional filters and pagination.
-
-**Query params:**
-
-| Param | Type | Default | Description |
-|---|---|---|---|
-| `start` | `YYYY-MM-DD` | — | Period start |
-| `end` | `YYYY-MM-DD` | — | Period end |
-| `category_id` | `int` | — | Filter by category |
-| `page` | `int` | `1` | Page number (≥ 1) |
-| `page_size` | `int` | `20` | Items per page (max 100) |
-
-**Response `200 OK`:**
-```json
-{
-  "items": [ ...Transaction ],
-  "total": 42,
-  "page": 1,
-  "page_size": 20
-}
-```
-
----
-
-#### `GET /api/v2/transactions/{id}`
-
-Returns a single transaction by UUID.
-
-**Response `200 OK`:** `Transaction`
-**Response `404`:** not found
-
----
-
 #### `POST /api/v2/transactions`
 
 Creates a transaction manually (no AI extraction).
@@ -130,17 +95,6 @@ Deletes a transaction.
 
 ### Categories — `src/v2/adapters/primary/bff/routers/categories.py`
 
-#### `GET /api/v2/categories`
-
-List active categories (`is_active = true`).
-
-**Response `200 OK`:**
-```json
-[{ "id": 1, "name": "Alimentação", "is_active": true }]
-```
-
----
-
 #### `POST /api/v2/categories`
 
 Create a new category.
@@ -171,22 +125,6 @@ Deactivates a category (`is_active = false`). Does not delete the record.
 ---
 
 ### Reports — `src/v2/adapters/primary/bff/routers/reports.py`
-
-#### `GET /api/v2/reports/summary`
-
-Total spent per category in a period, sorted by amount desc.
-
-**Required query params:** `start`, `end` (`YYYY-MM-DD`)
-
-**Response `200 OK`:**
-```json
-[
-  { "category": "Alimentação", "total": "245.90" },
-  { "category": "Transporte", "total": "123.50" }
-]
-```
-
----
 
 #### `GET /api/v2/reports/monthly`
 
@@ -225,6 +163,45 @@ id,date,establishment,description,category,amount,tax_id,entry_type,confidence,c
 **Response header:**
 ```
 Content-Disposition: attachment; filename=expenses_<start>_<end>.csv
+```
+
+---
+
+### BFF — Page Endpoints — `src/v2/adapters/primary/bff/routers/bff_dashboard.py`, `bff_expenses.py`
+
+These endpoints aggregate data for a specific frontend page in a single request.
+
+#### `GET /api/v2/bff/dashboard`
+
+Returns everything the Dashboard page needs in one call.
+
+**Required query params:** `start`, `end` (`YYYY-MM-DD`)
+
+**Response `200 OK`:**
+```json
+{
+  "outcome_summary": [{ "category": "Alimentação", "total": "245.90" }],
+  "income_summary":  [{ "category": "Salário",     "total": "5000.00" }],
+  "transaction_count": 42
+}
+```
+
+**Response `422`:** `start > end`
+
+---
+
+#### `GET /api/v2/bff/expenses`
+
+Returns paginated transactions and the full active category list for the Expenses page.
+
+**Query params:** `start`, `end`, `category_id`, `transaction_type`, `page` (default `1`), `page_size` (default `20`, max `100`)
+
+**Response `200 OK`:**
+```json
+{
+  "transactions": { "items": [...], "total": 42, "page": 1, "page_size": 20 },
+  "categories":   [{ "id": 1, "name": "Alimentação", "is_active": true }]
+}
 ```
 
 ---

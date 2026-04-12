@@ -84,10 +84,6 @@ def get_list_expenses(request: Request):
     return _uc(request).list_expenses
 
 
-def get_get_expense(request: Request):
-    return _uc(request).get_expense
-
-
 def get_update_expense(request: Request):
     return _uc(request).update_expense
 
