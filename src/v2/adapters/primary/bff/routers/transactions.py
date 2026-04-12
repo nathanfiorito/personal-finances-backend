@@ -1,6 +1,6 @@
 from datetime import date as _date
 from decimal import Decimal
-from typing import Literal, Optional
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -28,13 +28,13 @@ router = APIRouter(prefix="/api/v2/transactions", tags=["v2-transactions"])
 
 class TransactionCreate(BaseModel):
     amount: Decimal
-    date: Optional[_date] = None
+    date: _date | None = None
     category_id: int
     entry_type: str = "text"
     transaction_type: Literal["income", "outcome"] = "outcome"
-    establishment: Optional[str] = None
-    description: Optional[str] = None
-    tax_id: Optional[str] = None
+    establishment: str | None = None
+    description: str | None = None
+    tax_id: str | None = None
 
     @field_validator("amount")
     @classmethod
@@ -47,14 +47,14 @@ class TransactionCreate(BaseModel):
 
 
 class TransactionUpdate(BaseModel):
-    amount: Optional[Decimal] = None
-    date: Optional[_date] = None
-    category_id: Optional[int] = None
-    entry_type: Optional[str] = None
-    transaction_type: Optional[Literal["income", "outcome"]] = None
-    establishment: Optional[str] = None
-    description: Optional[str] = None
-    tax_id: Optional[str] = None
+    amount: Decimal | None = None
+    date: _date | None = None
+    category_id: int | None = None
+    entry_type: str | None = None
+    transaction_type: Literal["income", "outcome"] | None = None
+    establishment: str | None = None
+    description: str | None = None
+    tax_id: str | None = None
 
 
 class TransactionPage(BaseModel):
@@ -67,8 +67,8 @@ class TransactionPage(BaseModel):
 @router.get("", response_model=TransactionPage)
 async def list_transactions(
     request: Request,
-    start: Optional[_date] = None,
-    end: Optional[_date] = None,
+    start: _date | None = None,
+    end: _date | None = None,
     category_id: int | None = None,
     transaction_type: Literal["income", "outcome"] | None = None,
     page: int = Query(default=1, ge=1),

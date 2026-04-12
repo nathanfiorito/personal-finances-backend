@@ -77,9 +77,11 @@ async def _handle_pdf(
     process_message: ProcessMessage,
 ) -> None:
     try:
-        from src.services.telegram import get_file
-        import pdfplumber
         import io
+
+        import pdfplumber
+
+        from src.services.telegram import get_file
 
         file_id = document["file_id"]
         file_size = document.get("file_size", 0)

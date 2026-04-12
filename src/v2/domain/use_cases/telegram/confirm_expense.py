@@ -51,7 +51,7 @@ class ConfirmExpense:
                 await self._notifier.edit_message(
                     cmd.chat_id,
                     cmd.message_id,
-                    f"⚠️ *Possível duplicidade detectada*\n\n{duplicate_reason}\n\nDeseja salvar mesmo assim?",
+                    f"⚠️ *Possível duplicidade detectada*\n\n{duplicate_reason}\n\nDeseja salvar mesmo assim?",  # noqa: E501
                     parse_mode="Markdown",
                     buttons=buttons,
                 )

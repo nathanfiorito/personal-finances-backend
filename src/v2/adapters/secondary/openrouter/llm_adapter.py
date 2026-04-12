@@ -3,11 +3,11 @@ import logging
 import re
 from decimal import Decimal, InvalidOperation
 
-from src.v2.domain.entities.expense import Expense, ExtractedExpense
-from src.v2.domain.ports.llm_port import LLMPort
 # Re-use the existing retry-aware chat_completion helper to avoid duplicating
 # exponential back-off logic.
 from src.services.llm import chat_completion
+from src.v2.domain.entities.expense import Expense, ExtractedExpense
+from src.v2.domain.ports.llm_port import LLMPort
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +145,7 @@ Return ONLY the JSON, no additional text, no markdown, no explanations.
   "establishment": "<establishment name or null>",
   "description": "<short payment description or null>",
   "tax_id": "<establishment CNPJ tax ID or null>",
-  "transaction_type": "<\"income\" for money coming in or \"outcome\" for money going out. When in doubt, use \"outcome\">",
+  "transaction_type": "<\"income\" for money coming in or \"outcome\" for money going out. When in doubt, use \"outcome\">",  # noqa: E501
   "confidence": <number between 0.0 and 1.0>
 }
 
@@ -163,7 +163,7 @@ _PROMPT_TEXT = """Extract the financial information from the message below and r
   "establishment": "<place/establishment name or null>",
   "description": "<description of what was purchased/paid/received or null>",
   "tax_id": null,
-  "transaction_type": "<\"income\" for money coming in or \"outcome\" for money going out. When in doubt, use \"outcome\">",
+  "transaction_type": "<\"income\" for money coming in or \"outcome\" for money going out. When in doubt, use \"outcome\">",  # noqa: E501
   "confidence": <0.0 to 1.0>
 }}
 
@@ -189,13 +189,13 @@ Recent expenses:
 New expense:
 {new_expense}
 
-If the new expense appears to be a duplicate of one of the recent ones (same store, similar amount, same or consecutive days), respond with:
+If the new expense appears to be a duplicate of one of the recent ones (same store, similar amount, same or consecutive days), respond with:  # noqa: E501
 DUPLICATA: <brief reason in Portuguese>
 
 If it is NOT a duplicate, respond with:
 OK"""
 
-_PROMPT_REPORT = """Você é um assistente financeiro pessoal. Analise o resumo de despesas abaixo e gere exatamente 2 frases de insight financeiro em português. Seja direto e útil.
+_PROMPT_REPORT = """Você é um assistente financeiro pessoal. Analise o resumo de despesas abaixo e gere exatamente 2 frases de insight financeiro em português. Seja direto e útil.  # noqa: E501
 
 Período: {period}
 Despesas por categoria:

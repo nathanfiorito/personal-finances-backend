@@ -1,5 +1,5 @@
 from datetime import date as _date
-from typing import Literal, Optional
+from typing import Literal
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -35,7 +35,7 @@ class MonthlyItemOut(BaseModel):
 async def get_summary(
     start: _date,
     end: _date,
-    transaction_type: Optional[Literal["income", "outcome"]] = None,
+    transaction_type: Literal["income", "outcome"] | None = None,
     _user=Depends(get_current_user),
     use_case=Depends(get_get_summary),
 ):
@@ -48,7 +48,7 @@ async def get_summary(
 @router.get("/monthly", response_model=list[MonthlyItemOut])
 async def get_monthly(
     year: int,
-    transaction_type: Optional[Literal["income", "outcome"]] = None,
+    transaction_type: Literal["income", "outcome"] | None = None,
     _user=Depends(get_current_user),
     use_case=Depends(get_get_monthly),
 ):

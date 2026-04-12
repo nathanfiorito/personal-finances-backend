@@ -18,3 +18,6 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+"src/v2/adapters/secondary/openrouter/llm_adapter.py" = ["E501"]  # prompt strings exceed line limit
+

@@ -1,7 +1,6 @@
 import logging
 import time
 from datetime import date
-from decimal import Decimal
 from uuid import UUID
 
 from supabase import AsyncClient

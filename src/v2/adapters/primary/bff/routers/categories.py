@@ -1,4 +1,3 @@
-from typing import Optional
 
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
@@ -25,8 +24,8 @@ class CategoryCreate(BaseModel):
 
 
 class CategoryPatch(BaseModel):
-    name: Optional[str] = None
-    is_active: Optional[bool] = None
+    name: str | None = None
+    is_active: bool | None = None
 
 
 @router.get("", response_model=list[Category])

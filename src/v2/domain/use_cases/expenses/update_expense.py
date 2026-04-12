@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Literal, Optional
+from typing import Literal
 from uuid import UUID
 
 from src.v2.domain.entities.expense import Expense
@@ -12,14 +12,14 @@ from src.v2.domain.ports.expense_repository import ExpenseRepository, ExpenseUpd
 @dataclass
 class UpdateExpenseCommand:
     expense_id: UUID
-    amount: Optional[Decimal] = None
-    date: Optional[date] = None
-    establishment: Optional[str] = None
-    description: Optional[str] = None
-    category_id: Optional[int] = None
-    tax_id: Optional[str] = None
-    entry_type: Optional[Literal["image", "text", "pdf"]] = None
-    transaction_type: Optional[Literal["income", "outcome"]] = None
+    amount: Decimal | None = None
+    date: date | None = None
+    establishment: str | None = None
+    description: str | None = None
+    category_id: int | None = None
+    tax_id: str | None = None
+    entry_type: Literal["image", "text", "pdf"] | None = None
+    transaction_type: Literal["income", "outcome"] | None = None
 
 
 class UpdateExpense:

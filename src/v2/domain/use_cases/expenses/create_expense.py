@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Literal, Optional, Union
+from typing import Literal
 
 from src.v2.domain.entities.expense import Expense, ExtractedExpense
 from src.v2.domain.ports.expense_repository import ExpenseRepository
@@ -14,9 +14,9 @@ class CreateExpenseCommand:
     category_id: int
     entry_type: Literal["image", "text", "pdf"]
     transaction_type: Literal["income", "outcome"]
-    establishment: Optional[str] = None
-    description: Optional[str] = None
-    tax_id: Optional[str] = None
+    establishment: str | None = None
+    description: str | None = None
+    tax_id: str | None = None
 
 
 class CreateExpense:
