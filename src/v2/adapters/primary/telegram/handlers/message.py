@@ -62,9 +62,8 @@ async def handle_message(update: dict, use_cases) -> None:
 async def _download_image_b64(file_id: str) -> str | None:
     """Download a Telegram file and return it as base64."""
     try:
-        from src.services.telegram import get_file_url, download_file
-        url = await get_file_url(file_id)
-        content = await download_file(url)
+        from src.services.telegram import get_file
+        content = await get_file(file_id)
         return base64.b64encode(content).decode()
     except Exception:
         logger.exception("Failed to download image file_id=%s", file_id)
@@ -78,7 +77,7 @@ async def _handle_pdf(
     process_message: ProcessMessage,
 ) -> None:
     try:
-        from src.services.telegram import get_file_url, download_file
+        from src.services.telegram import get_file
         import pdfplumber
         import io
 
@@ -90,8 +89,7 @@ async def _handle_pdf(
             )
             return
 
-        url = await get_file_url(file_id)
-        content = await download_file(url)
+        content = await get_file(file_id)
 
         # Try text extraction
         extracted_text = ""

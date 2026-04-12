@@ -10,7 +10,6 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from src.config.settings import settings
-# from src.handlers.message import handle_update  # v1 — kept for reference
 from src.routers import categories, expenses, export, reports, transactions
 from src.services.telegram import send_message
 from src.v2.bootstrap import build_use_cases, build_v2_router
@@ -109,7 +108,7 @@ async def lifespan(app: FastAPI):
     from src.scheduler.reports import start_scheduler, stop_scheduler
     # Wire v2 use cases
     app.state.use_cases = await build_use_cases()
-    start_scheduler()
+    start_scheduler(use_cases=app.state.use_cases)
     yield
     stop_scheduler()
 
