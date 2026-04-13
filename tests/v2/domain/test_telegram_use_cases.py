@@ -50,7 +50,7 @@ def _make_expense() -> Expense:
         category="Alimentação",
         tax_id=None,
         entry_type="text",
-        transaction_type="outcome",
+        transaction_type="expense",
         payment_method="debit",
         confidence=0.9,
         created_at=_dt.datetime(2026, 1, 15, 10, 0),
@@ -63,7 +63,7 @@ def _make_extracted() -> ExtractedExpense:
         date=_dt.date(2026, 1, 15),
         establishment="Store",
         entry_type="text",
-        transaction_type="outcome",
+        transaction_type="expense",
         confidence=0.9,
     )
 

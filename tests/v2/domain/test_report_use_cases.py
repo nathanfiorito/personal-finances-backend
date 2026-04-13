@@ -27,7 +27,7 @@ def _make_expense(category: str, amount: str, month: int) -> Expense:
         category=category,
         tax_id=None,
         entry_type="text",
-        transaction_type="outcome",
+        transaction_type="expense",
         payment_method="debit",
         confidence=0.9,
         created_at=_dt.datetime(2026, month, 15, 10, 0),
