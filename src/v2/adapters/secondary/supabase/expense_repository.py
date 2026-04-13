@@ -45,11 +45,12 @@ class SupabaseExpenseRepository(ExpenseRepository):
         response = (
             await self._client.table(_TABLE)
             .insert(record)
-            .select("*, categories(name)")
             .execute()
         )
         logger.info("DB %s.insert %.0fms", _TABLE, (time.perf_counter() - t) * 1000)
-        return _parse_row(response.data[0])
+        row_id = UUID(response.data[0]["id"])
+        saved = await self.get_by_id(row_id)
+        return saved  # type: ignore[return-value]  # row was just inserted
 
     async def get_by_id(self, expense_id: UUID) -> Expense | None:
         t = time.perf_counter()
@@ -147,19 +148,16 @@ class SupabaseExpenseRepository(ExpenseRepository):
         if not payload:
             return await self.get_by_id(expense_id)
         t = time.perf_counter()
-        response = (
-            await self._client.table(_TABLE)
+        await (
+            self._client.table(_TABLE)
             .update(payload)
             .eq("id", str(expense_id))
-            .select("*, categories(name)")
             .execute()
         )
         logger.info(
             "DB %s.update %.0fms", _TABLE, (time.perf_counter() - t) * 1000
         )
-        if not response.data:
-            return None
-        return _parse_row(response.data[0])
+        return await self.get_by_id(expense_id)
 
     async def delete(self, expense_id: UUID) -> bool:
         t = time.perf_counter()
