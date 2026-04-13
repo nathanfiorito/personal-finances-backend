@@ -71,9 +71,11 @@ async def test_get_summary_aggregates_by_category():
     result = await GetSummary(repo).execute(
         GetSummaryQuery(start=_dt.date(2026, 1, 1), end=_dt.date(2026, 1, 31))
     )
-    by_cat = {item.category: item.total for item in result}
-    assert by_cat["Alimentação"] == Decimal("50.00")
-    assert by_cat["Transporte"] == Decimal("15.00")
+    by_cat = {item.category: item for item in result}
+    assert by_cat["Alimentação"].total == Decimal("50.00")
+    assert by_cat["Alimentação"].count == 2
+    assert by_cat["Transporte"].total == Decimal("15.00")
+    assert by_cat["Transporte"].count == 1
 
 
 @pytest.mark.asyncio
