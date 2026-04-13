@@ -6,6 +6,12 @@ import pytest
 
 from src.v2.domain.entities.category import Category
 from src.v2.domain.entities.expense import Expense, ExtractedExpense
+
+
+def test_payment_method_enum_has_credit_and_debit():
+    from src.v2.domain.entities.expense import PaymentMethod
+    assert PaymentMethod.CREDIT == "credit"
+    assert PaymentMethod.DEBIT == "debit"
 from src.v2.domain.exceptions import ExpenseNotFoundError
 from src.v2.domain.ports.category_repository import CategoryRepository, CategoryUpdate
 from src.v2.domain.ports.expense_repository import (
@@ -46,6 +52,7 @@ def _make_expense(expense_id: UUID | None = None) -> Expense:
         tax_id=None,
         entry_type="text",
         transaction_type="outcome",
+        payment_method="debit",
         confidence=0.9,
         created_at=_dt.datetime(2026, 1, 15, 10, 0),
     )
