@@ -51,6 +51,7 @@ def _make_expense() -> Expense:
         tax_id=None,
         entry_type="text",
         transaction_type="outcome",
+        payment_method="debit",
         confidence=0.9,
         created_at=_dt.datetime(2026, 1, 15, 10, 0),
     )

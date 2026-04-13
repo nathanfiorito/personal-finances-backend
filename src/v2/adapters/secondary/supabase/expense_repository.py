@@ -38,6 +38,7 @@ class SupabaseExpenseRepository(ExpenseRepository):
             "tax_id": expense.tax_id,
             "entry_type": expense.entry_type,
             "transaction_type": expense.transaction_type,
+            "payment_method": str(expense.payment_method),
             "confidence": expense.confidence,
             "raw_data": {},
         }
@@ -142,6 +143,7 @@ class SupabaseExpenseRepository(ExpenseRepository):
                 "tax_id": data.tax_id,
                 "entry_type": data.entry_type,
                 "transaction_type": data.transaction_type,
+                "payment_method": data.payment_method,
             }.items()
             if v is not None
         }
