@@ -100,6 +100,7 @@ async def test_create_expense_returns_saved_expense():
         category_id=1,
         entry_type="text",
         transaction_type="outcome",
+        payment_method="debit",
         establishment="Test Store",
     )
     result = await use_case.execute(cmd)
@@ -171,3 +172,30 @@ async def test_delete_expense_raises_when_not_found():
     repo = StubExpenseRepository()
     with pytest.raises(ExpenseNotFoundError):
         await DeleteExpense(repo).execute(DeleteExpenseCommand(expense_id=uuid4()))
+
+
+@pytest.mark.asyncio
+async def test_create_expense_command_accepts_payment_method():
+    repo = StubExpenseRepository()
+    cmd = CreateExpenseCommand(
+        amount=Decimal("50.00"),
+        date=_dt.date(2026, 1, 15),
+        category_id=1,
+        entry_type="manual",
+        transaction_type="outcome",
+        payment_method="credit",
+    )
+    result = await CreateExpense(repo).execute(cmd)
+    assert result is not None
+
+
+@pytest.mark.asyncio
+async def test_update_expense_command_accepts_payment_method():
+    expense = _make_expense()
+    repo = StubExpenseRepository([expense])
+    cmd = UpdateExpenseCommand(
+        expense_id=expense.id,
+        payment_method="credit",
+    )
+    result = await UpdateExpense(repo).execute(cmd)
+    assert result is not None
