@@ -30,6 +30,7 @@ class ExpenseUpdate:
     tax_id: str | None = None
     entry_type: str | None = None
     transaction_type: Literal["income", "outcome"] | None = None
+    payment_method: str | None = None
 
 
 class ExpenseRepository(ABC):
