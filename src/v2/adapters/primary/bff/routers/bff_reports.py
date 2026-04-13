@@ -45,8 +45,12 @@ async def get_reports(
     return [
         ReportMonthOut(
             month=month,
-            income_total=str(income_by_month[month].total if month in income_by_month else Decimal("0.00")),
-            expense_total=str(expense_by_month[month].total if month in expense_by_month else Decimal("0.00")),
+            income_total=str(
+                income_by_month[month].total if month in income_by_month else Decimal("0.00")
+            ),
+            expense_total=str(
+                expense_by_month[month].total if month in expense_by_month else Decimal("0.00")
+            ),
             expense_by_category=[
                 ReportByCategoryOut(category=b.category, total=str(b.total))
                 for b in (expense_by_month[month].by_category if month in expense_by_month else [])
