@@ -10,9 +10,8 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from src.config.settings import settings
-from src.handlers.message import handle_update
-from src.routers import categories, expenses, export, reports, transactions
 from src.services.telegram import send_message
+from src.v2.bootstrap import build_use_cases, build_v2_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -106,14 +105,21 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from src.scheduler.reports import start_scheduler, stop_scheduler
-    start_scheduler()
+    # Wire v2 use cases
+    app.state.use_cases = await build_use_cases()
+    start_scheduler(use_cases=app.state.use_cases)
     yield
     stop_scheduler()
 
 
-app = FastAPI(title="Personal Finances", docs_url=None, redoc_url=None, lifespan=lifespan)
-# TODO(security/F-01): Disable OpenAPI schema in production to avoid exposing full API map to unauthenticated users.  # noqa: E501
-# Add openapi_url=None to the FastAPI constructor above.
+_is_production = settings.environment == "production"
+app = FastAPI(
+    title="Personal Finances",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None if _is_production else "/openapi.json",
+    lifespan=lifespan,
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -135,16 +141,12 @@ app.add_middleware(
 )
 
 
-# TODO(security/F-04): Add security headers middleware below.
-# response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
-# response.headers["X-Content-Type-Options"] = "nosniff"
-# response.headers["X-Frame-Options"] = "DENY"
-# response.headers["Referrer-Policy"] = "no-referrer"
-
-
 @app.middleware("http")
 async def log_request_timing(request: Request, call_next):
-    """Log every request with method, path, status code and total processing time."""
+    """Log every request with method, path, status code and total processing time.
+
+    Also injects security headers on every response.
+    """
     start = time.perf_counter()
     response = await call_next(request)
     elapsed_ms = (time.perf_counter() - start) * 1000
@@ -155,14 +157,15 @@ async def log_request_timing(request: Request, call_next):
         response.status_code,
         elapsed_ms,
     )
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
     return response
 
 
-app.include_router(transactions.router)
-app.include_router(expenses.router)  # 301 compat layer — keep until frontend is fully migrated
-app.include_router(categories.router)
-app.include_router(reports.router)
-app.include_router(export.router)
+# v2 — hexagonal architecture (routes at /api/v2/...)
+app.include_router(build_v2_router())
 
 
 @app.get("/health")
@@ -192,7 +195,9 @@ async def webhook(request: Request) -> dict:
         return {"ok": True}
 
     try:
-        await handle_update(update)
+        # v2 Telegram handler
+        from src.v2.adapters.primary.telegram.webhook import handle_update as handle_update_v2
+        await handle_update_v2(update, app.state.use_cases)
     except Exception:
         logger.exception("Error processing update: %s", update)
 

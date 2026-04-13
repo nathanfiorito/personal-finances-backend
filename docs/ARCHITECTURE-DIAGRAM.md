@@ -1,157 +1,141 @@
-# Diagrama de Arquitetura — Personal Finances
+# Architecture Diagram — Personal Finances
 
-## Fluxo Principal
+## Main Flow (Telegram Bot)
 
 ```mermaid
 flowchart TD
-    User([👤 Usuário]) -->|foto / texto / PDF / comando| TG[Telegram]
+    User([👤 User]) -->|photo / text / PDF / command| TG[Telegram]
     TG -->|webhook HTTPS| CF[Cloudflare\nDNS + Proxy + Tunnel]
     CF --> API[FastAPI\nWebhook Handler]
 
-    API --> Router{Router\nTipo de entrada?}
+    API --> WHOOK{Webhook Router\nv2 primary adapter}
 
-    Router -->|imagem| EXT_IMG[Agente Extrator\nSonnet 4.6 via OpenRouter]
-    Router -->|texto| EXT_TXT[Agente Extrator\nHaiku 4.5 via OpenRouter]
-    Router -->|PDF com texto| EXT_PDFT[Agente Extrator\nHaiku 4.5 via OpenRouter]
-    Router -->|PDF escaneado| EXT_PDFI[Agente Extrator\nSonnet 4.6 via OpenRouter]
-    Router -->|comando| CMD[Command Handler\n/relatorio /exportar /categorias]
+    WHOOK -->|image / text / PDF| MSG[ProcessMessage\nuse case]
+    WHOOK -->|/command| CMD[Command Handler\n/relatorio /exportar /categorias]
+    WHOOK -->|callback_query| CB[Callback Handler\nconfirm / cancel / edit_category]
 
-    EXT_IMG --> CAT[Agente Categorizador\nHaiku 4.5 via OpenRouter]
-    EXT_TXT --> CAT
-    EXT_PDFT --> CAT
-    EXT_PDFI --> CAT
+    MSG --> LLM[LLMPort\nextract_expense\nSonnet 4.6 or Haiku 4.5]
+    LLM --> PENDING[InMemoryPendingStateAdapter\nTTL 10 min]
+    PENDING --> CONFIRM[Confirmation\nTelegram Inline Keyboard]
 
-    CAT --> CONFIRM[Confirmação\nInline Keyboard no Telegram]
-    CONFIRM -->|✅ Confirmar| DUPCHECK[Verificador de Duplicatas\nHaiku 4.5 via OpenRouter]
-    CONFIRM -->|✏️ Editar Categoria| CAT_SEL[Seleção de Categoria\nInline Keyboard]
-    CONFIRM -->|❌ Cancelar| DISCARD[Descartado]
-    CAT_SEL --> CONFIRM
+    CB -->|confirm| DUPCHECK[LLMPort\ncheck_duplicate\nHaiku 4.5]
+    CB -->|set_category| PENDING
+    CB -->|cancel| DISCARD[Discarded]
 
-    DUPCHECK -->|✅ Não duplicata| DB[(Supabase\nPostgreSQL)]
-    DUPCHECK -->|⚠️ Duplicata detectada| DUPWARN[Aviso de Duplicata\nInline Keyboard]
-    DUPWARN -->|Salvar mesmo assim| DB
-    DUPWARN -->|Cancelar| DISCARD
+    DUPCHECK -->|no duplicate| REPO[(SupabaseExpenseRepository\nPostgreSQL)]
+    DUPCHECK -->|duplicate warning| DUPWARN[Duplicate Warning\nInline Keyboard]
+    DUPWARN -->|force_confirm| REPO
+    DUPWARN -->|cancel| DISCARD
 
-    CMD -->|/relatorio| RPT[Gerador de Relatório]
-    CMD -->|/exportar| CSV[Exportador CSV]
-    CMD -->|/categorias| CAT_CMD[Gerenciador de Categorias]
+    CMD -->|/relatorio| RPT[GenerateTelegramReport\nuse case]
+    CMD -->|/exportar| CSV[ExportCsv use case]
+    CMD -->|/categorias| CAT_CMD[ListCategories / CreateCategory\nuse cases]
 
-    RPT --> DB
-    RPT --> LLM_RPT[Sonnet 4.6\nInsight financeiro]
-    LLM_RPT --> TG_OUT[Resposta no Telegram]
+    RPT --> REPO
+    RPT --> LLM_RPT[LLMPort\ngenerate_report_insight\nSonnet 4.6]
+    LLM_RPT --> NOTIFIER[TelegramNotifierAdapter]
 
-    CSV --> DB
-    CAT_CMD --> DB
+    CSV --> REPO
+    CAT_CMD --> CATREPO[(SupabaseCategoryRepository)]
 
-    SCHED[APScheduler\nCron — dia 1 às 08h] --> RPT
+    SCHED[APScheduler\nCron — 1st at 08:00 BRT] --> RPT
 ```
 
-## Visão de Componentes
+## Hexagonal Architecture — Component View
 
 ```mermaid
 graph LR
-    subgraph "FastAPI App (Monólito Modular)"
-        WH[Webhook Handler\nmain.py]
-        RT[Router\nhandlers/message.py]
-        AG_E[agents/extractor.py]
-        AG_C[agents/categorizer.py]
-        AG_D[agents/duplicate_checker.py]
-        AG_R[agents/reporter.py]
-        HDL_CB[handlers/callback.py]
-        HDL_CMD[handlers/commands.py]
-        SVC_T[services/telegram.py]
-        SVC_L[services/llm.py]
-        SVC_D[services/database.py]
-        MDL_E[models/expense.py]
-        MDL_P[models/pending.py]
-        SCHED[scheduler/reports.py]
+    subgraph "Primary Adapters"
+        BFF["BFF REST API\n/api/v2/...\nbff/routers/*.py"]
+        TGWHOOK["Telegram Webhook\ntelegram/webhook.py\n+ handlers/"]
     end
 
-    subgraph "Externos"
+    subgraph "Domain"
+        UC_E["Expense Use Cases\ncreate, list, get, update, delete"]
+        UC_C["Category Use Cases\nlist, create, update, deactivate"]
+        UC_R["Report Use Cases\nsummary, monthly, export_csv"]
+        UC_T["Telegram Use Cases\nprocess, confirm, cancel, change_category, report"]
+        PORTS["Ports (ABCs)\nExpenseRepository\nCategoryRepository\nLLMPort\nNotifierPort\nPendingStatePort"]
+    end
+
+    subgraph "Secondary Adapters"
+        SBREPO["SupabaseExpenseRepository\nSupabaseCategoryRepository"]
+        LLMADP["OpenRouterLLMAdapter\nvia services/llm.py"]
+        NOTADP["TelegramNotifierAdapter\nvia services/telegram.py"]
+        MEMADP["InMemoryPendingStateAdapter\nTTL dict"]
+    end
+
+    subgraph "External Services"
         TG_API[Telegram Bot API]
         OR_API[OpenRouter API\nSonnet 4.6 + Haiku 4.5]
         SB_API[Supabase PostgreSQL]
     end
 
-    WH --> RT
-    RT --> AG_E
-    RT --> HDL_CB
-    RT --> HDL_CMD
-    HDL_CB --> AG_D
-    HDL_CB --> SVC_D
-    HDL_CMD --> AG_R
-    HDL_CMD --> SVC_D
-    AG_E --> SVC_L
-    AG_C --> SVC_L
-    AG_D --> SVC_L
-    AG_R --> SVC_L
-    AG_R --> SVC_D
-    AG_C --> SVC_D
-    SVC_L --> OR_API
-    SVC_D --> SB_API
-    SVC_T --> TG_API
-    AG_E --> MDL_E
-    HDL_CB --> MDL_P
-    RT --> MDL_P
-    SCHED --> AG_R
+    BFF --> UC_E & UC_C & UC_R
+    TGWHOOK --> UC_T
+    UC_E & UC_C & UC_R & UC_T --> PORTS
+    PORTS -.->|implemented by| SBREPO & LLMADP & NOTADP & MEMADP
+    SBREPO --> SB_API
+    LLMADP --> OR_API
+    NOTADP --> TG_API
 ```
 
-## Fluxo de Dados — Registro de Despesa (Imagem)
+## Sequence — Expense Registration (Image)
 
 ```mermaid
 sequenceDiagram
-    participant U as Usuário
+    participant U as User
     participant T as Telegram
-    participant F as FastAPI
+    participant F as FastAPI + v2
     participant OR as OpenRouter
     participant DB as Supabase
 
-    U->>T: Envia foto de comprovante
+    U->>T: Sends receipt photo
     T->>F: Webhook (POST /webhook)
-    F->>T: getFile (download da imagem)
-    T-->>F: Bytes da imagem
+    F->>T: getFile (download image)
+    T-->>F: Image bytes
 
-    F->>OR: Sonnet 4.6 + imagem (extração)
-    OR-->>F: JSON {valor, data, estabelecimento, cnpj, confiança}
+    F->>OR: Sonnet 4.6 + image (extraction)
+    OR-->>F: JSON {amount, date, establishment, tax_id, transaction_type, confidence}
 
-    F->>DB: get_active_categories() (cache 5min)
+    F->>DB: list active categories
     DB-->>F: ["Alimentação", "Transporte", ...]
 
-    F->>OR: Haiku 4.5 (categorização)
+    F->>OR: Haiku 4.5 (categorize)
     OR-->>F: "Alimentação"
 
-    F->>T: sendMessage + Inline Keyboard [Confirmar][Categoria][Cancelar]
-    T->>U: "R$ 45,90 - Supermercado - Alimentação\n[Confirmar][Categoria][Cancelar]"
+    F->>T: sendMessage + Inline Keyboard [Confirm][Category][Cancel]
+    T->>U: "R$ 45,90 - Supermercado - Alimentação\n[Confirm][Category][Cancel]"
 
-    U->>T: Clica Confirmar
+    U->>T: Clicks Confirm
     T->>F: Callback Query (confirm)
 
-    F->>DB: get_recent_expenses(limit=3)
-    DB-->>F: [últimas 3 despesas]
+    F->>DB: list recent expenses (limit=3)
+    DB-->>F: [last 3 expenses]
 
-    F->>OR: Haiku 4.5 (verificação de duplicatas)
+    F->>OR: Haiku 4.5 (duplicate check)
     OR-->>F: "OK"
 
-    F->>DB: save_expense(expense, categoria)
-    DB-->>F: UUID da despesa
+    F->>DB: save expense
+    DB-->>F: expense UUID
 
     F->>T: editMessage "Despesa de R$ 45,90 em Alimentação registrada!"
-    T->>U: Confirmação final
+    T->>U: Final confirmation
 ```
 
 ## Inline Keyboards
 
-### Confirmação (após extração)
+### Confirmation (after extraction)
 ```
-[ Confirmar ] [ Categoria ] [ Cancelar ]
-```
-
-### Aviso de Duplicata (após detect)
-```
-[ Salvar mesmo assim ] [ Cancelar ]
+[ ✅ Confirm ] [ ✏️ Category ] [ ❌ Cancel ]
 ```
 
-### Seleção de Categoria (ao clicar "Categoria")
+### Duplicate Warning
+```
+[ 💾 Save anyway ] [ ❌ Cancel ]
+```
+
+### Category Selection (after clicking "Category")
 ```
 [ Alimentação  ] [ Transporte ]
 [ Moradia      ] [ Saúde      ]
@@ -159,4 +143,4 @@ sequenceDiagram
 [ Vestuário    ] [ Serviços   ]
 [ Pets         ] [ Outros     ]
 ```
-*(mais categorias customizadas adicionadas pelo usuário)*
+*(plus any custom categories added by the user)*

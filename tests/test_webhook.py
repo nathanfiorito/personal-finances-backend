@@ -14,6 +14,7 @@ HEADERS = {"X-Telegram-Bot-Api-Secret-Token": VALID_SECRET}
 
 @pytest.fixture(autouse=True)
 def patch_settings(monkeypatch):
+    from types import SimpleNamespace
     import src.main as main_module
     import src.config.settings as settings_module
 
@@ -21,6 +22,8 @@ def patch_settings(monkeypatch):
     monkeypatch.setattr(settings_module.settings, "telegram_allowed_chat_id", ALLOWED_CHAT_ID)
     monkeypatch.setattr(main_module.settings, "telegram_webhook_secret", VALID_SECRET)
     monkeypatch.setattr(main_module.settings, "telegram_allowed_chat_id", ALLOWED_CHAT_ID)
+    # TestClient doesn't run lifespan; wire a stub so the webhook can read use_cases
+    app.state.use_cases = SimpleNamespace()
 
 
 # --- Helpers ---
@@ -92,24 +95,24 @@ class TestSecurity:
         assert response.status_code == 403
 
     def test_valid_secret_returns_200(self, mocker):
-        mocker.patch("src.main.handle_update")
+        mocker.patch("src.v2.adapters.primary.telegram.webhook.handle_update")
         response = _post_webhook(_text_update(ALLOWED_CHAT_ID, "oi"))
         assert response.status_code == 200
 
     def test_unauthorized_chat_id_ignored(self, mocker):
-        mock_handle = mocker.patch("src.main.handle_update")
+        mock_handle = mocker.patch("src.v2.adapters.primary.telegram.webhook.handle_update")
         response = _post_webhook(_text_update(99999, "oi"))
         assert response.status_code == 200
         mock_handle.assert_not_called()
 
     def test_authorized_chat_id_processed(self, mocker):
-        mock_handle = mocker.patch("src.main.handle_update")
+        mock_handle = mocker.patch("src.v2.adapters.primary.telegram.webhook.handle_update")
         _post_webhook(_text_update(ALLOWED_CHAT_ID, "oi"))
         mock_handle.assert_called_once()
 
     def test_any_ip_accepted_with_valid_secret(self, mocker):
         # IP validation was removed — only the secret token is checked
-        mocker.patch("src.main.handle_update")
+        mocker.patch("src.v2.adapters.primary.telegram.webhook.handle_update")
         response = _post_webhook(
             _text_update(ALLOWED_CHAT_ID, "oi"),
             client_ip="1.2.3.4",
@@ -148,39 +151,47 @@ class TestCORS:
         assert response.headers.get("access-control-allow-origin") is None
 
 
-# --- Roteamento ---
+# --- Roteamento (v2) ---
 
 class TestRouting:
-    @pytest.fixture(autouse=True)
-    def mock_telegram(self, mocker):
-        mocker.patch("src.handlers.message.telegram.send_message")
-        mocker.patch("src.handlers.message.telegram.answer_callback")
-
-    def test_text_message_calls_handle_text(self, mocker):
-        mock_text = mocker.patch("src.handlers.message.handle_text")
+    def test_text_message_routes_to_handle_message(self, mocker):
+        mock_msg = mocker.patch(
+            "src.v2.adapters.primary.telegram.webhook.handle_message",
+            new_callable=mocker.AsyncMock,
+        )
         _post_webhook(_text_update(ALLOWED_CHAT_ID, "gastei 50 no mercado"))
-        mock_text.assert_called_once_with(ALLOWED_CHAT_ID, "gastei 50 no mercado")
+        mock_msg.assert_called_once()
 
-    def test_command_calls_dispatch(self, mocker):
-        mock_dispatch = mocker.patch("src.handlers.message.dispatch_command")
+    def test_command_routes_to_handle_command(self, mocker):
+        mock_cmd = mocker.patch(
+            "src.v2.adapters.primary.telegram.webhook.handle_command",
+            new_callable=mocker.AsyncMock,
+        )
         _post_webhook(_text_update(ALLOWED_CHAT_ID, "/start"))
-        mock_dispatch.assert_called_once_with(ALLOWED_CHAT_ID, "/start")
+        mock_cmd.assert_called_once()
 
-    def test_photo_calls_handle_photo(self, mocker):
-        mock_photo = mocker.patch("src.handlers.message.handle_photo")
+    def test_photo_routes_to_handle_message(self, mocker):
+        mock_msg = mocker.patch(
+            "src.v2.adapters.primary.telegram.webhook.handle_message",
+            new_callable=mocker.AsyncMock,
+        )
         _post_webhook(_photo_update(ALLOWED_CHAT_ID))
-        mock_photo.assert_called_once()
-        assert mock_photo.call_args[0][0] == ALLOWED_CHAT_ID
+        mock_msg.assert_called_once()
 
-    def test_pdf_calls_handle_pdf(self, mocker):
-        mock_pdf = mocker.patch("src.handlers.message.handle_pdf")
+    def test_pdf_routes_to_handle_message(self, mocker):
+        mock_msg = mocker.patch(
+            "src.v2.adapters.primary.telegram.webhook.handle_message",
+            new_callable=mocker.AsyncMock,
+        )
         _post_webhook(_pdf_update(ALLOWED_CHAT_ID))
-        mock_pdf.assert_called_once()
-        assert mock_pdf.call_args[0][0] == ALLOWED_CHAT_ID
+        mock_msg.assert_called_once()
 
-    def test_callback_query_calls_handle_callback(self, mocker):
-        mock_cb = mocker.patch("src.handlers.callback.handle_callback", new_callable=mocker.AsyncMock)
-        _post_webhook(_callback_update(ALLOWED_CHAT_ID, "confirm:12345"))
+    def test_callback_query_routes_to_handle_callback(self, mocker):
+        mock_cb = mocker.patch(
+            "src.v2.adapters.primary.telegram.webhook.handle_callback",
+            new_callable=mocker.AsyncMock,
+        )
+        _post_webhook(_callback_update(ALLOWED_CHAT_ID, "confirm"))
         mock_cb.assert_called_once()
 
     def test_largest_photo_selected(self):
@@ -214,3 +225,23 @@ class TestHealth:
         response = client.get("/health")
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
+
+
+# --- Security headers ---
+
+class TestSecurityHeaders:
+    def test_hsts_present(self):
+        response = client.get("/health")
+        assert "strict-transport-security" in response.headers
+
+    def test_x_content_type_options(self):
+        response = client.get("/health")
+        assert response.headers.get("x-content-type-options") == "nosniff"
+
+    def test_x_frame_options(self):
+        response = client.get("/health")
+        assert response.headers.get("x-frame-options") == "DENY"
+
+    def test_referrer_policy(self):
+        response = client.get("/health")
+        assert response.headers.get("referrer-policy") == "no-referrer"
