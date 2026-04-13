@@ -22,7 +22,7 @@ class ExtractedExpense(BaseModel):
     description: str | None = None
     tax_id: str | None = None
     entry_type: str
-    transaction_type: Literal["income", "outcome"] = "outcome"
+    transaction_type: Literal["income", "expense"] = "expense"
     payment_method: PaymentMethod = PaymentMethod.DEBIT
     confidence: float = Field(ge=0.0, le=1.0, default=0.5)
 
@@ -58,7 +58,7 @@ class Expense(BaseModel):
     category: str
     tax_id: str | None
     entry_type: str
-    transaction_type: Literal["income", "outcome"]
+    transaction_type: Literal["income", "expense"]
     payment_method: PaymentMethod
     confidence: float | None
     created_at: datetime

@@ -11,7 +11,7 @@ class ListExpensesQuery:
     start: date | None = None
     end: date | None = None
     category_id: int | None = None
-    transaction_type: Literal["income", "outcome"] | None = None
+    transaction_type: Literal["income", "expense"] | None = None
     page: int = 1
     page_size: int = 20
 

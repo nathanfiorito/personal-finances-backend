@@ -15,7 +15,7 @@ class ExpenseFilters:
     start: date | None = None
     end: date | None = None
     category_id: int | None = None
-    transaction_type: Literal["income", "outcome"] | None = None
+    transaction_type: Literal["income", "expense"] | None = None
     page: int = 1
     page_size: int = 20
 
@@ -29,7 +29,7 @@ class ExpenseUpdate:
     category_id: int | None = None
     tax_id: str | None = None
     entry_type: str | None = None
-    transaction_type: Literal["income", "outcome"] | None = None
+    transaction_type: Literal["income", "expense"] | None = None
     payment_method: str | None = None
 
 
