@@ -9,9 +9,7 @@ from pydantic import BaseModel
 from src.v2.adapters.primary.bff.deps import (
     get_current_user,
     get_get_summary,
-    get_list_expenses,
 )
-from src.v2.domain.use_cases.expenses.list_expenses import ListExpensesQuery
 from src.v2.domain.use_cases.reports.get_summary import GetSummaryQuery
 
 router = APIRouter(prefix="/api/v2/bff", tags=["v2-bff"])
@@ -34,19 +32,17 @@ async def get_dashboard(
     end: _date,
     _user=Depends(get_current_user),
     summary_uc=Depends(get_get_summary),
-    list_uc=Depends(get_list_expenses),
 ):
     if start > end:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="start must be <= end",
         )
-    expense_items, income_items, list_result = await asyncio.gather(
+    expense_items, income_items = await asyncio.gather(
         summary_uc.execute(GetSummaryQuery(start=start, end=end, transaction_type="expense")),
         summary_uc.execute(GetSummaryQuery(start=start, end=end, transaction_type="income")),
-        list_uc.execute(ListExpensesQuery(start=start, end=end, page=1, page_size=1)),
     )
-    _, total = list_result
+    total = sum(i.count for i in expense_items) + sum(i.count for i in income_items)
     return DashboardResponse(
         expense_summary=[
             SummaryItemOut(category=i.category, total=str(i.total)) for i in expense_items
