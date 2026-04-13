@@ -95,3 +95,29 @@ def test_delete_category_returns_204():
     client = TestClient(_app(_default_uc()))
     resp = client.delete("/api/v2/categories/1")
     assert resp.status_code == 204
+
+
+class StubListCategoriesAll:
+    """Returns both active and inactive categories."""
+    async def execute(self):
+        return [
+            Category(id=1, name="Alimentação", is_active=True),
+            Category(id=2, name="Transporte", is_active=True),
+            Category(id=3, name="Lazer", is_active=False),
+        ]
+
+
+def test_list_categories_includes_inactive():
+    uc = SimpleNamespace(
+        list_categories=StubListCategoriesAll(),
+        create_category=StubCreateCategory(),
+        update_category=StubUpdateCategory(),
+        deactivate_category=StubDeactivateCategory(),
+    )
+    client = TestClient(_app(uc))
+    resp = client.get("/api/v2/categories")
+    assert resp.status_code == 200
+    names = [c["name"] for c in resp.json()]
+    assert "Lazer" in names
+    inactive = [c for c in resp.json() if not c["is_active"]]
+    assert len(inactive) == 1

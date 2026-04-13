@@ -50,7 +50,6 @@ class SupabaseCategoryRepository(CategoryRepository):
         response = (
             await self._client.table(_TABLE)
             .select("id, name, is_active")
-            .eq("is_active", True)
             .order("name")
             .execute()
         )
