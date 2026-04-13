@@ -29,7 +29,7 @@ class TransactionCreate(BaseModel):
     date: _date | None = None
     category_id: int
     entry_type: str = "text"
-    transaction_type: Literal["income", "outcome"] = "outcome"
+    transaction_type: Literal["income", "expense"] = "expense"
     payment_method: Literal["credit", "debit"]
     establishment: str | None = None
     description: str | None = None
@@ -50,7 +50,7 @@ class TransactionUpdate(BaseModel):
     date: _date | None = None
     category_id: int | None = None
     entry_type: str | None = None
-    transaction_type: Literal["income", "outcome"] | None = None
+    transaction_type: Literal["income", "expense"] | None = None
     payment_method: Literal["credit", "debit"] | None = None
     establishment: str | None = None
     description: str | None = None

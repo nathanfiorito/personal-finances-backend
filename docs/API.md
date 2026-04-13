@@ -65,7 +65,7 @@ Creates a transaction manually (no AI extraction).
   "category_id": 1,
   "tax_id": null,
   "entry_type": "text",
-  "transaction_type": "outcome"
+  "transaction_type": "expense"
 }
 ```
 
@@ -190,7 +190,7 @@ Returns everything the Dashboard page needs in one call.
 **Response `200 OK`:**
 ```json
 {
-  "outcome_summary": [{ "category": "Alimentação", "total": "245.90" }],
+  "expense_summary": [{ "category": "Alimentação", "total": "245.90" }],
   "income_summary":  [{ "category": "Salário",     "total": "5000.00" }],
   "transaction_count": 42
 }
@@ -204,7 +204,7 @@ Returns everything the Dashboard page needs in one call.
 
 Returns paginated transactions and the full active category list for the Expenses page.
 
-**Query params:** `start`, `end`, `category_id`, `transaction_type` (`"income" | "outcome"`), `page` (default `1`), `page_size` (default `20`, max `100`)
+**Query params:** `start`, `end`, `category_id`, `transaction_type` (`"income" | "expense"`), `page` (default `1`), `page_size` (default `20`, max `100`)
 
 **Response `200 OK`:**
 ```json
@@ -213,6 +213,30 @@ Returns paginated transactions and the full active category list for the Expense
   "categories":   [{ "id": 1, "name": "Alimentação", "is_active": true }]
 }
 ```
+
+---
+
+#### `GET /api/v2/bff/reports`
+
+Returns combined income + expense monthly totals for the Reports page.
+
+**Query params:** `year` (int, required)
+
+**Response `200 OK`:**
+```json
+[
+  {
+    "month": 1,
+    "income_total": "5000.00",
+    "expense_total": "369.40",
+    "expense_by_category": [
+      { "category": "Alimentação", "total": "245.90" }
+    ]
+  }
+]
+```
+
+Only months with at least one transaction (income or expense) are returned.
 
 ---
 
@@ -232,7 +256,7 @@ class Expense:   # Domain entity; serialized as Transaction in API
     category_id: int | None
     tax_id: str | None
     entry_type: str      # "image" | "text" | "pdf"
-    transaction_type: str  # "outcome" | "income"
+    transaction_type: str  # "expense" | "income"
     confidence: float | None
     created_at: datetime
 ```

@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from src.config.settings import settings as _settings
 from src.v2.adapters.primary.bff.routers.bff_dashboard import router as bff_dashboard_router
 from src.v2.adapters.primary.bff.routers.bff_expenses import router as bff_expenses_router
+from src.v2.adapters.primary.bff.routers.bff_reports import router as bff_reports_router
 from src.v2.adapters.primary.bff.routers.categories import router as categories_router
 from src.v2.adapters.primary.bff.routers.export import router as export_router
 from src.v2.adapters.primary.bff.routers.reports import router as reports_router
@@ -115,4 +116,5 @@ def build_v2_router() -> APIRouter:
     router.include_router(export_router)
     router.include_router(bff_dashboard_router)
     router.include_router(bff_expenses_router)
+    router.include_router(bff_reports_router)
     return router

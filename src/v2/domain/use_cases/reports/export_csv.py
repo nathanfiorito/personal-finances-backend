@@ -11,7 +11,7 @@ from src.v2.domain.ports.expense_repository import ExpenseRepository
 class ExportCsvQuery:
     start: date
     end: date
-    transaction_type: Literal["income", "outcome"] | None = None
+    transaction_type: Literal["income", "expense"] | None = None
 
 
 class ExportCsv:

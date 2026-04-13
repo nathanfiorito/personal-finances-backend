@@ -16,7 +16,7 @@ class SummaryItem:
 class GetSummaryQuery:
     start: date
     end: date
-    transaction_type: Literal["income", "outcome"] | None = None
+    transaction_type: Literal["income", "expense"] | None = None
 
 
 class GetSummary:

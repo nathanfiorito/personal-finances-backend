@@ -51,7 +51,7 @@ def _make_expense(expense_id: UUID | None = None) -> Expense:
         category="Alimentação",
         tax_id=None,
         entry_type="text",
-        transaction_type="outcome",
+        transaction_type="expense",
         payment_method="debit",
         confidence=0.9,
         created_at=_dt.datetime(2026, 1, 15, 10, 0),
@@ -99,7 +99,7 @@ async def test_create_expense_returns_saved_expense():
         date=_dt.date(2026, 1, 15),
         category_id=1,
         entry_type="text",
-        transaction_type="outcome",
+        transaction_type="expense",
         payment_method="debit",
         establishment="Test Store",
     )
@@ -182,7 +182,7 @@ async def test_create_expense_command_accepts_payment_method():
         date=_dt.date(2026, 1, 15),
         category_id=1,
         entry_type="manual",
-        transaction_type="outcome",
+        transaction_type="expense",
         payment_method="credit",
     )
     result = await CreateExpense(repo).execute(cmd)
