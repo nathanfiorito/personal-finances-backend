@@ -24,7 +24,7 @@ def _make_expense() -> Expense:
         category="Alimentação",
         tax_id=None,
         entry_type="text",
-        transaction_type="outcome",
+        transaction_type="expense",
         payment_method="debit",
         confidence=0.9,
         created_at=_dt.datetime(2026, 1, 15, 10, 0),
@@ -78,7 +78,7 @@ def test_create_transaction_returns_201():
             "date": "2026-01-15",
             "category_id": 1,
             "entry_type": "text",
-            "transaction_type": "outcome",
+            "transaction_type": "expense",
             "payment_method": "debit",
         },
     )
@@ -99,7 +99,7 @@ def test_create_transaction_with_payment_method_returns_201():
             "date": "2026-01-15",
             "category_id": 1,
             "entry_type": "manual",
-            "transaction_type": "outcome",
+            "transaction_type": "expense",
             "payment_method": "credit",
         },
     )
@@ -120,7 +120,7 @@ def test_create_transaction_without_payment_method_returns_422():
             "date": "2026-01-15",
             "category_id": 1,
             "entry_type": "manual",
-            "transaction_type": "outcome",
+            "transaction_type": "expense",
         },
     )
     assert resp.status_code == 422

@@ -42,11 +42,11 @@ def test_dashboard_returns_200_with_aggregated_data():
     resp = client.get("/api/v2/bff/dashboard?start=2026-01-01&end=2026-01-31")
     assert resp.status_code == 200
     body = resp.json()
-    assert "outcome_summary" in body
+    assert "expense_summary" in body
     assert "income_summary" in body
     assert body["transaction_count"] == 5
-    assert body["outcome_summary"][0]["category"] == "Alimentação"
-    assert body["outcome_summary"][0]["total"] == "245.90"
+    assert body["expense_summary"][0]["category"] == "Alimentação"
+    assert body["expense_summary"][0]["total"] == "245.90"
 
 
 def test_dashboard_requires_start_and_end():

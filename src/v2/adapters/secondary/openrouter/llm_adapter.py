@@ -145,7 +145,7 @@ Return ONLY the JSON, no additional text, no markdown, no explanations.
   "establishment": "<establishment name or null>",
   "description": "<short payment description or null>",
   "tax_id": "<establishment CNPJ tax ID or null>",
-  "transaction_type": "<\"income\" for money coming in or \"outcome\" for money going out. When in doubt, use \"outcome\">",  # noqa: E501
+  "transaction_type": "<\"income\" for money coming in or \"expense\" for money going out. When in doubt, use \"expense\">",  # noqa: E501
   "confidence": <number between 0.0 and 1.0>
 }
 
@@ -163,7 +163,7 @@ _PROMPT_TEXT = """Extract the financial information from the message below and r
   "establishment": "<place/establishment name or null>",
   "description": "<description of what was purchased/paid/received or null>",
   "tax_id": null,
-  "transaction_type": "<\"income\" for money coming in or \"outcome\" for money going out. When in doubt, use \"outcome\">",  # noqa: E501
+  "transaction_type": "<\"income\" for money coming in or \"expense\" for money going out. When in doubt, use \"expense\">",  # noqa: E501
   "confidence": <0.0 to 1.0>
 }}
 
@@ -230,7 +230,7 @@ def _parse_extracted(raw: str, entry_type: str) -> ExtractedExpense:
         description=data.get("description"),
         tax_id=data.get("tax_id"),
         entry_type=entry_type,  # type: ignore[arg-type]
-        transaction_type=data.get("transaction_type", "outcome"),  # type: ignore[arg-type]
+        transaction_type=data.get("transaction_type", "expense"),  # type: ignore[arg-type]
         confidence=float(data.get("confidence", 0.5)),
     )
 

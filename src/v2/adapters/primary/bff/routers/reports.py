@@ -28,7 +28,7 @@ class MonthlyItemOut(BaseModel):
 @router.get("/monthly", response_model=list[MonthlyItemOut])
 async def get_monthly(
     year: int,
-    transaction_type: Literal["income", "outcome"] | None = None,
+    transaction_type: Literal["income", "expense"] | None = None,
     _user=Depends(get_current_user),
     use_case=Depends(get_get_monthly),
 ):

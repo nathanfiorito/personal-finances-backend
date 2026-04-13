@@ -23,7 +23,7 @@ class SummaryItemOut(BaseModel):
 
 
 class DashboardResponse(BaseModel):
-    outcome_summary: list[SummaryItemOut]
+    expense_summary: list[SummaryItemOut]
     income_summary: list[SummaryItemOut]
     transaction_count: int
 
@@ -41,15 +41,15 @@ async def get_dashboard(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="start must be <= end",
         )
-    outcome_items, income_items, list_result = await asyncio.gather(
-        summary_uc.execute(GetSummaryQuery(start=start, end=end, transaction_type="outcome")),
+    expense_items, income_items, list_result = await asyncio.gather(
+        summary_uc.execute(GetSummaryQuery(start=start, end=end, transaction_type="expense")),
         summary_uc.execute(GetSummaryQuery(start=start, end=end, transaction_type="income")),
         list_uc.execute(ListExpensesQuery(start=start, end=end, page=1, page_size=1)),
     )
     _, total = list_result
     return DashboardResponse(
-        outcome_summary=[
-            SummaryItemOut(category=i.category, total=str(i.total)) for i in outcome_items
+        expense_summary=[
+            SummaryItemOut(category=i.category, total=str(i.total)) for i in expense_items
         ],
         income_summary=[
             SummaryItemOut(category=i.category, total=str(i.total)) for i in income_items
