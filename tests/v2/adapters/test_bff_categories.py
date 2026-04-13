@@ -19,6 +19,14 @@ def _app(use_cases: SimpleNamespace) -> FastAPI:
     return app
 
 
+class StubListCategories:
+    async def execute(self):
+        return [
+            Category(id=1, name="Alimentação", is_active=True),
+            Category(id=2, name="Transporte", is_active=True),
+        ]
+
+
 class StubCreateCategory:
     async def execute(self, cmd):
         return Category(id=3, name=cmd.name, is_active=True)
@@ -45,10 +53,18 @@ class StubDeactivateCategory:
 
 def _default_uc():
     return SimpleNamespace(
+        list_categories=StubListCategories(),
         create_category=StubCreateCategory(),
         update_category=StubUpdateCategory(),
         deactivate_category=StubDeactivateCategory(),
     )
+
+
+def test_list_categories_returns_200():
+    client = TestClient(_app(_default_uc()))
+    resp = client.get("/api/v2/categories")
+    assert resp.status_code == 200
+    assert len(resp.json()) == 2
 
 
 def test_create_category_returns_201():

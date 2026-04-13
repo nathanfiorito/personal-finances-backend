@@ -94,6 +94,17 @@ Deletes a transaction.
 
 ### Categories — `src/v2/adapters/primary/bff/routers/categories.py`
 
+#### `GET /api/v2/categories`
+
+List active categories (`is_active = true`).
+
+**Response `200 OK`:**
+```json
+[{ "id": 1, "name": "Alimentação", "is_active": true }]
+```
+
+---
+
 #### `POST /api/v2/categories`
 
 Create a new category.
