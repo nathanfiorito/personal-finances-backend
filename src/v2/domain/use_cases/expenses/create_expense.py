@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 
 from src.v2.domain.entities.expense import Expense, ExtractedExpense
 from src.v2.domain.ports.expense_repository import ExpenseRepository
@@ -13,9 +14,8 @@ class CreateExpenseCommand:
     amount: Decimal
     date: date
     category_id: int
-    entry_type: str
-    transaction_type: str
-    payment_method: str
+    entry_type: Literal["image", "text", "pdf"]
+    transaction_type: Literal["income", "outcome"]
     establishment: str | None = None
     description: str | None = None
     tax_id: str | None = None
@@ -34,7 +34,6 @@ class CreateExpense:
             tax_id=cmd.tax_id,
             entry_type=cmd.entry_type,
             transaction_type=cmd.transaction_type,
-            payment_method=cmd.payment_method,
             confidence=1.0,
         )
         return await self._repo.save(extracted, cmd.category_id)

@@ -25,7 +25,6 @@ def _make_expense() -> Expense:
         tax_id=None,
         entry_type="text",
         transaction_type="outcome",
-        payment_method="debit",
         confidence=0.9,
         created_at=_dt.datetime(2026, 1, 15, 10, 0),
     )
@@ -79,51 +78,9 @@ def test_create_transaction_returns_201():
             "category_id": 1,
             "entry_type": "text",
             "transaction_type": "outcome",
-            "payment_method": "debit",
         },
     )
     assert resp.status_code == 201
-
-
-def test_create_transaction_with_payment_method_returns_201():
-    uc = SimpleNamespace(
-        create_expense=StubCreateExpense(),
-        update_expense=StubUpdateExpense(),
-        delete_expense=StubDeleteExpense(),
-    )
-    client = TestClient(_app(uc))
-    resp = client.post(
-        "/api/v2/transactions",
-        json={
-            "amount": "50.00",
-            "date": "2026-01-15",
-            "category_id": 1,
-            "entry_type": "manual",
-            "transaction_type": "outcome",
-            "payment_method": "credit",
-        },
-    )
-    assert resp.status_code == 201
-
-
-def test_create_transaction_without_payment_method_returns_422():
-    uc = SimpleNamespace(
-        create_expense=StubCreateExpense(),
-        update_expense=StubUpdateExpense(),
-        delete_expense=StubDeleteExpense(),
-    )
-    client = TestClient(_app(uc))
-    resp = client.post(
-        "/api/v2/transactions",
-        json={
-            "amount": "50.00",
-            "date": "2026-01-15",
-            "category_id": 1,
-            "entry_type": "manual",
-            "transaction_type": "outcome",
-        },
-    )
-    assert resp.status_code == 422
 
 
 def test_update_transaction_returns_404_when_not_found():
