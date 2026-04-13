@@ -64,14 +64,21 @@ class SupabaseCategoryRepository(CategoryRepository):
         response = (
             await self._client.table(_TABLE)
             .insert({"name": name})
-            .select("id, name, is_active")
             .execute()
         )
         logger.info(
             "DB %s.create %.0fms", _TABLE, (time.perf_counter() - t) * 1000
         )
         self._invalidate_cache()
-        return Category(**response.data[0])
+        row_id = response.data[0]["id"]
+        fetch = (
+            await self._client.table(_TABLE)
+            .select("id, name, is_active")
+            .eq("id", row_id)
+            .limit(1)
+            .execute()
+        )
+        return Category(**fetch.data[0])
 
     async def update(self, category_id: int, data: CategoryUpdate) -> Category | None:
         payload = {
@@ -82,32 +89,44 @@ class SupabaseCategoryRepository(CategoryRepository):
         if not payload:
             return None
         t = time.perf_counter()
-        response = (
-            await self._client.table(_TABLE)
+        await (
+            self._client.table(_TABLE)
             .update(payload)
             .eq("id", category_id)
-            .select("id, name, is_active")
             .execute()
         )
         logger.info(
             "DB %s.update %.0fms", _TABLE, (time.perf_counter() - t) * 1000
         )
         self._invalidate_cache()
-        if not response.data:
+        fetch = (
+            await self._client.table(_TABLE)
+            .select("id, name, is_active")
+            .eq("id", category_id)
+            .limit(1)
+            .execute()
+        )
+        if not fetch.data:
             return None
-        return Category(**response.data[0])
+        return Category(**fetch.data[0])
 
     async def deactivate(self, category_id: int) -> bool:
         t = time.perf_counter()
-        response = (
-            await self._client.table(_TABLE)
+        await (
+            self._client.table(_TABLE)
             .update({"is_active": False})
             .eq("id", category_id)
-            .select("id")
             .execute()
         )
         logger.info(
             "DB %s.deactivate %.0fms", _TABLE, (time.perf_counter() - t) * 1000
         )
         self._invalidate_cache()
-        return bool(response.data)
+        fetch = (
+            await self._client.table(_TABLE)
+            .select("id")
+            .eq("id", category_id)
+            .limit(1)
+            .execute()
+        )
+        return bool(fetch.data)
