@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 from types import SimpleNamespace
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -81,7 +82,6 @@ def test_update_category_returns_200():
 
 def test_update_category_returns_404_when_not_found():
     uc = SimpleNamespace(
-        list_categories=StubListCategories(),
         create_category=StubCreateCategory(),
         update_category=StubUpdateCategory(found=False),
         deactivate_category=StubDeactivateCategory(),
