@@ -36,7 +36,7 @@ async def get_expenses_page(
     start: _date | None = None,
     end: _date | None = None,
     category_id: int | None = None,
-    transaction_type: Literal["income", "outcome"] | None = None,
+    transaction_type: Literal["income", "expense"] | None = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     _user=Depends(get_current_user),
