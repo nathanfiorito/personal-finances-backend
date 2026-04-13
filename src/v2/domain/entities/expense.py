@@ -1,16 +1,10 @@
 from datetime import date as _date
 from datetime import datetime
 from decimal import Decimal
-from enum import StrEnum
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
-
-
-class PaymentMethod(StrEnum):
-    CREDIT = "credit"
-    DEBIT = "debit"
 
 
 class ExtractedExpense(BaseModel):
@@ -21,9 +15,8 @@ class ExtractedExpense(BaseModel):
     establishment: str | None = None
     description: str | None = None
     tax_id: str | None = None
-    entry_type: str
+    entry_type: Literal["image", "text", "pdf"]
     transaction_type: Literal["income", "outcome"] = "outcome"
-    payment_method: PaymentMethod = PaymentMethod.DEBIT
     confidence: float = Field(ge=0.0, le=1.0, default=0.5)
 
     @field_validator("amount")
@@ -59,6 +52,5 @@ class Expense(BaseModel):
     tax_id: str | None
     entry_type: str
     transaction_type: Literal["income", "outcome"]
-    payment_method: PaymentMethod
     confidence: float | None
     created_at: datetime

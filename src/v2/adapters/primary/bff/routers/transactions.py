@@ -30,7 +30,6 @@ class TransactionCreate(BaseModel):
     category_id: int
     entry_type: str = "text"
     transaction_type: Literal["income", "outcome"] = "outcome"
-    payment_method: Literal["credit", "debit"]
     establishment: str | None = None
     description: str | None = None
     tax_id: str | None = None
@@ -51,7 +50,6 @@ class TransactionUpdate(BaseModel):
     category_id: int | None = None
     entry_type: str | None = None
     transaction_type: Literal["income", "outcome"] | None = None
-    payment_method: Literal["credit", "debit"] | None = None
     establishment: str | None = None
     description: str | None = None
     tax_id: str | None = None
@@ -70,7 +68,6 @@ async def create_transaction(
             category_id=body.category_id,
             entry_type=body.entry_type,
             transaction_type=body.transaction_type,
-            payment_method=body.payment_method,
             establishment=body.establishment,
             description=body.description,
             tax_id=body.tax_id,
@@ -94,7 +91,6 @@ async def update_transaction(
                 category_id=body.category_id,
                 entry_type=body.entry_type,
                 transaction_type=body.transaction_type,
-                payment_method=body.payment_method,
                 establishment=body.establishment,
                 description=body.description,
                 tax_id=body.tax_id,

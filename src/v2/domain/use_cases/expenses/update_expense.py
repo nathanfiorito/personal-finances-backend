@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from src.v2.domain.entities.expense import Expense
@@ -19,9 +20,8 @@ class UpdateExpenseCommand:
     description: str | None = None
     category_id: int | None = None
     tax_id: str | None = None
-    entry_type: str | None = None
-    transaction_type: str | None = None
-    payment_method: str | None = None
+    entry_type: Literal["image", "text", "pdf"] | None = None
+    transaction_type: Literal["income", "outcome"] | None = None
 
 
 class UpdateExpense:
@@ -38,7 +38,6 @@ class UpdateExpense:
             tax_id=cmd.tax_id,
             entry_type=cmd.entry_type,
             transaction_type=cmd.transaction_type,
-            payment_method=cmd.payment_method,
         )
         expense = await self._repo.update(cmd.expense_id, data)
         if expense is None:
