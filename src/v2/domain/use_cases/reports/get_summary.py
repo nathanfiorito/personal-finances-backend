@@ -10,6 +10,7 @@ from src.v2.domain.ports.expense_repository import ExpenseRepository
 class SummaryItem:
     category: str
     total: Decimal
+    count: int = 0
 
 
 @dataclass
@@ -28,11 +29,13 @@ class GetSummary:
             query.start, query.end, query.transaction_type
         )
         totals: dict[str, Decimal] = {}
+        counts: dict[str, int] = {}
         for expense in expenses:
             totals[expense.category] = (
                 totals.get(expense.category, Decimal("0")) + expense.amount
             )
+            counts[expense.category] = counts.get(expense.category, 0) + 1
         return [
-            SummaryItem(category=cat, total=total)
-            for cat, total in sorted(totals.items())
+            SummaryItem(category=cat, total=totals[cat], count=counts[cat])
+            for cat in sorted(totals)
         ]
