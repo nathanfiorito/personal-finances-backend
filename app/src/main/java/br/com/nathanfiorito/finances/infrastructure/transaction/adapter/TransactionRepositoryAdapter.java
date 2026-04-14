@@ -52,8 +52,16 @@ public class TransactionRepositoryAdapter implements TransactionRepository {
     }
 
     @Override
-    public List<Transaction> listByPeriod(LocalDate start, LocalDate end, TransactionType type) {
-        return jpa.findByDateBetweenAndTransactionType(start, end, type)
+    public List<Transaction> listByPeriod(LocalDate start, LocalDate end, Optional<TransactionType> type) {
+        List<TransactionEntity> entities = type.isPresent()
+            ? jpa.findByDateBetweenAndTransactionType(start, end, type.get())
+            : jpa.findByDateBetween(start, end);
+        return entities.stream().map(TransactionMapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Transaction> listRecent(int limit) {
+        return jpa.findAllByOrderByCreatedAtDesc(PageRequest.of(0, limit))
             .stream().map(TransactionMapper::toDomain).toList();
     }
 
