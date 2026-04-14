@@ -10,7 +10,7 @@ import br.com.nathanfiorito.finances.domain.transaction.records.Transaction;
 import br.com.nathanfiorito.finances.interfaces.rest.BaseControllerIT;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -27,8 +27,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(BffController.class)
 class BffControllerIT extends BaseControllerIT {
 
-    @MockBean private ListTransactionsUseCase listTransactions;
-    @MockBean private ListCategoriesUseCase listCategories;
+    @MockitoBean private ListTransactionsUseCase listTransactions;
+    @MockitoBean private ListCategoriesUseCase listCategories;
 
     @Test
     void getTransactionsShouldReturnCombinedResponseWhenAuthenticated() throws Exception {
