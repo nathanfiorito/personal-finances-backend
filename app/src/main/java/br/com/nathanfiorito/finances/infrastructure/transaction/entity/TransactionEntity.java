@@ -49,6 +49,7 @@ public class TransactionEntity {
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
 
+    @Column(precision = 4, scale = 2)
     private Double confidence;
 
     @Column(name = "created_at", nullable = false, updatable = false)
