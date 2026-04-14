@@ -27,6 +27,7 @@ public class SecurityConfig {
     private String allowedOriginsRaw;
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final TelegramWebhookFilter telegramWebhookFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -36,8 +37,10 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/webhook").permitAll()
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(telegramWebhookFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

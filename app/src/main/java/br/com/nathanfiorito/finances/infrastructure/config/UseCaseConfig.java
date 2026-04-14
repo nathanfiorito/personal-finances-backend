@@ -4,6 +4,10 @@ import br.com.nathanfiorito.finances.application.category.usecases.CreateCategor
 import br.com.nathanfiorito.finances.application.category.usecases.DeactivateCategoryUseCase;
 import br.com.nathanfiorito.finances.application.category.usecases.ListCategoriesUseCase;
 import br.com.nathanfiorito.finances.application.category.usecases.UpdateCategoryUseCase;
+import br.com.nathanfiorito.finances.application.telegram.usecases.CancelTransactionUseCase;
+import br.com.nathanfiorito.finances.application.telegram.usecases.ChangeCategoryUseCase;
+import br.com.nathanfiorito.finances.application.telegram.usecases.ConfirmTransactionUseCase;
+import br.com.nathanfiorito.finances.application.telegram.usecases.ProcessMessageUseCase;
 import br.com.nathanfiorito.finances.application.transaction.usecases.CreateTransactionUseCase;
 import br.com.nathanfiorito.finances.application.transaction.usecases.DeleteTransactionUseCase;
 import br.com.nathanfiorito.finances.application.transaction.usecases.ExportCsvUseCase;
@@ -13,6 +17,9 @@ import br.com.nathanfiorito.finances.application.transaction.usecases.GetTransac
 import br.com.nathanfiorito.finances.application.transaction.usecases.ListTransactionsUseCase;
 import br.com.nathanfiorito.finances.application.transaction.usecases.UpdateTransactionUseCase;
 import br.com.nathanfiorito.finances.domain.category.ports.CategoryRepository;
+import br.com.nathanfiorito.finances.domain.telegram.ports.NotifierPort;
+import br.com.nathanfiorito.finances.domain.telegram.ports.PendingStatePort;
+import br.com.nathanfiorito.finances.domain.transaction.ports.LlmPort;
 import br.com.nathanfiorito.finances.domain.transaction.ports.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -24,6 +31,9 @@ public class UseCaseConfig {
 
     private final TransactionRepository transactionRepository;
     private final CategoryRepository categoryRepository;
+    private final LlmPort llmPort;
+    private final NotifierPort notifierPort;
+    private final PendingStatePort pendingStatePort;
 
     @Bean
     public CreateTransactionUseCase createTransactionUseCase() {
@@ -83,5 +93,29 @@ public class UseCaseConfig {
     @Bean
     public DeactivateCategoryUseCase deactivateCategoryUseCase() {
         return new DeactivateCategoryUseCase(categoryRepository);
+    }
+
+    // -------------------------------------------------------------------------
+    // Telegram use cases
+    // -------------------------------------------------------------------------
+
+    @Bean
+    public ProcessMessageUseCase processMessageUseCase() {
+        return new ProcessMessageUseCase(llmPort, categoryRepository, pendingStatePort, notifierPort);
+    }
+
+    @Bean
+    public ConfirmTransactionUseCase confirmTransactionUseCase() {
+        return new ConfirmTransactionUseCase(transactionRepository, llmPort, pendingStatePort, notifierPort);
+    }
+
+    @Bean
+    public CancelTransactionUseCase cancelTransactionUseCase() {
+        return new CancelTransactionUseCase(pendingStatePort, notifierPort);
+    }
+
+    @Bean
+    public ChangeCategoryUseCase changeCategoryUseCase() {
+        return new ChangeCategoryUseCase(pendingStatePort, notifierPort);
     }
 }
