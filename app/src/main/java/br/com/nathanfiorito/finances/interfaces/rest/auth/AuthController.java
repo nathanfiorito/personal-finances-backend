@@ -3,6 +3,7 @@ package br.com.nathanfiorito.finances.interfaces.rest.auth;
 import br.com.nathanfiorito.finances.infrastructure.security.JwtService;
 import br.com.nathanfiorito.finances.interfaces.rest.auth.dto.LoginRequest;
 import br.com.nathanfiorito.finances.interfaces.rest.auth.dto.LoginResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +29,7 @@ public class AuthController {
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
+    @SecurityRequirements
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody @Valid LoginRequest request) {
         if (!request.email().equalsIgnoreCase(adminEmail) ||

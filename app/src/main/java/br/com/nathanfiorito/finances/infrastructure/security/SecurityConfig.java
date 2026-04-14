@@ -38,6 +38,15 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/webhook").permitAll()
+                // Swagger paths are always permitted regardless of SWAGGER_ENABLED.
+                // When SWAGGER_ENABLED=false: springdoc registers no handlers → 404 (not 403).
+                // When SWAGGER_ENABLED=true: the API spec is publicly accessible without auth.
+                // Both are acceptable trade-offs for a private single-user app.
+                .requestMatchers(
+                    "/swagger-ui/**",
+                    "/swagger-ui.html",
+                    "/v3/api-docs/**"
+                ).permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(telegramWebhookFilter, UsernamePasswordAuthenticationFilter.class)
