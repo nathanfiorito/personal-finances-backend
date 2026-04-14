@@ -38,6 +38,9 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/webhook").permitAll()
+                // Swagger paths are always permitted regardless of SWAGGER_ENABLED.
+                // When SWAGGER_ENABLED=false, springdoc registers no handlers and requests
+                // return 404 rather than 403 — acceptable for a private single-user app.
                 .requestMatchers(
                     "/swagger-ui/**",
                     "/swagger-ui.html",

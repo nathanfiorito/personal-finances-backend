@@ -27,4 +27,10 @@ class SwaggerSecurityIT extends BaseControllerIT {
         var result = mockMvc.perform(get("/swagger-ui/index.html")).andReturn();
         assertThat(result.getResponse().getStatus()).isNotIn(List.of(401, 403));
     }
+
+    @Test
+    void swaggerUiHtmlShouldNotBeBlockedBySecurity() throws Exception {
+        var result = mockMvc.perform(get("/swagger-ui.html")).andReturn();
+        assertThat(result.getResponse().getStatus()).isNotIn(List.of(401, 403));
+    }
 }
