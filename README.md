@@ -72,10 +72,16 @@ A Java rewrite of this backend is in progress inside `app/`. It follows the same
   - `GET /api/v1/reports/monthly?year=` — monthly breakdown by category for a full year
   - `GET /api/v1/export/csv?start=&end=` — CSV download with UTF-8 BOM (Excel-compatible)
 - [x] **`TransactionRepository` extended** — `listByPeriod` now accepts `Optional<TransactionType>` (null = no type filter); `listRecent(int limit)` added for duplicate checking
+- [x] **Telegram use cases** — `ProcessMessageUseCase`, `ConfirmTransactionUseCase`, `CancelTransactionUseCase`, `ChangeCategoryUseCase` with commands, unit tests, and stubs (`StubNotifierPort`, `StubPendingStatePort`, `StubLlmPort`)
+- [x] **Telegram ports** — `NotifierPort` (with nested `NotificationButton`) and `PendingStatePort` in `domain/telegram/ports/`; `PendingTransaction` record in `domain/telegram/records/`
+- [x] **Telegram infrastructure** — `TelegramNotifierAdapter` (RestClient → Telegram Bot API), `InMemoryPendingStateAdapter` (ConcurrentHashMap + TTL 10 min), `TelegramFileDownloaderAdapter` (photo + PDF; PDFBox 3.x for text extraction and scanned-page rendering)
+- [x] **Telegram webhook** — `TelegramWebhookController` at `POST /webhook`; routes messages (text, photo, PDF) and callbacks (confirm, force_confirm, cancel, edit_category, set_category)
+- [x] **Webhook security** — `TelegramWebhookFilter` validates `X-Telegram-Bot-Api-Secret-Token` header before the JWT filter; `/webhook` is `permitAll()` in Spring Security
+- [x] **`LlmPort` extended** — `categorize(extracted, categoryNames)` added; implemented in `OpenRouterLlmAdapter` using Haiku 4.5 with structured JSON output
+- [x] **`CategoryRepository` extended** — `listAll()` added; backed by `JpaCategoryRepository.findByActiveTrue()` (no pagination)
 
 ### Pending
 
-- [ ] **Telegram use cases** — `ProcessMessage`, `ConfirmTransaction`, and related handlers
 - [ ] **Integration tests** — Testcontainers with a real PostgreSQL instance
 
 ---

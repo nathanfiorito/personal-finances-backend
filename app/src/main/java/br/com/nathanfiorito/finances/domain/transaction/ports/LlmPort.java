@@ -8,4 +8,5 @@ import java.util.List;
 public interface LlmPort {
     ExtractedTransaction extractTransaction(String content, String entryType);
     boolean isDuplicate(ExtractedTransaction extracted, List<Transaction> recentTransactions);
+    String categorize(ExtractedTransaction extracted, List<String> categoryNames);
 }
