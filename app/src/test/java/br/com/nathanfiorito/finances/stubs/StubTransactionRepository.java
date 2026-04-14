@@ -27,7 +27,7 @@ public class StubTransactionRepository implements TransactionRepository {
             extracted.establishment(),
             extracted.description(),
             categoryId,
-            "Test Category",
+            "Category " + categoryId,
             extracted.taxId(),
             extracted.entryType(),
             extracted.transactionType(),
@@ -52,8 +52,17 @@ public class StubTransactionRepository implements TransactionRepository {
     }
 
     @Override
-    public List<Transaction> listByPeriod(LocalDate start, LocalDate end, TransactionType type) {
-        return new ArrayList<>(transactions);
+    public List<Transaction> listByPeriod(LocalDate start, LocalDate end, Optional<TransactionType> type) {
+        return transactions.stream()
+            .filter(t -> !t.date().isBefore(start) && !t.date().isAfter(end))
+            .filter(t -> type.isEmpty() || t.transactionType() == type.get())
+            .toList();
+    }
+
+    @Override
+    public List<Transaction> listRecent(int limit) {
+        int fromIndex = Math.max(0, transactions.size() - limit);
+        return new ArrayList<>(transactions.subList(fromIndex, transactions.size()));
     }
 
     @Override

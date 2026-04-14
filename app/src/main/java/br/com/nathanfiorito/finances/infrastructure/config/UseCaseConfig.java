@@ -6,6 +6,9 @@ import br.com.nathanfiorito.finances.application.category.usecases.ListCategorie
 import br.com.nathanfiorito.finances.application.category.usecases.UpdateCategoryUseCase;
 import br.com.nathanfiorito.finances.application.transaction.usecases.CreateTransactionUseCase;
 import br.com.nathanfiorito.finances.application.transaction.usecases.DeleteTransactionUseCase;
+import br.com.nathanfiorito.finances.application.transaction.usecases.ExportCsvUseCase;
+import br.com.nathanfiorito.finances.application.transaction.usecases.GetMonthlyUseCase;
+import br.com.nathanfiorito.finances.application.transaction.usecases.GetSummaryUseCase;
 import br.com.nathanfiorito.finances.application.transaction.usecases.GetTransactionUseCase;
 import br.com.nathanfiorito.finances.application.transaction.usecases.ListTransactionsUseCase;
 import br.com.nathanfiorito.finances.application.transaction.usecases.UpdateTransactionUseCase;
@@ -45,6 +48,21 @@ public class UseCaseConfig {
     @Bean
     public DeleteTransactionUseCase deleteTransactionUseCase() {
         return new DeleteTransactionUseCase(transactionRepository);
+    }
+
+    @Bean
+    public GetSummaryUseCase getSummaryUseCase() {
+        return new GetSummaryUseCase(transactionRepository);
+    }
+
+    @Bean
+    public GetMonthlyUseCase getMonthlyUseCase() {
+        return new GetMonthlyUseCase(transactionRepository);
+    }
+
+    @Bean
+    public ExportCsvUseCase exportCsvUseCase() {
+        return new ExportCsvUseCase(transactionRepository);
     }
 
     @Bean
