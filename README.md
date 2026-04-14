@@ -1,89 +1,166 @@
-# personal-finances-backend
+# Personal Finances — Java API
 
-FastAPI backend and Telegram bot for personal expense tracking. Receives payment receipts (photo, PDF, or text), extracts and categorizes expenses using AI agents, and exposes a REST API for the frontend.
+Spring Boot REST API and Telegram bot for personal expense tracking.
 
-## Stack
+**Stack:** Java 25 · Spring Boot 3.x · Maven · PostgreSQL (Flyway) · JUnit 5 + Testcontainers
 
-| Component | Technology |
-|---|---|
-| Runtime | Python 3.12+ / FastAPI |
-| Bot | httpx (Telegram Bot API, webhook mode) |
-| LLM | Claude Sonnet 4.6 + Haiku 4.5 via OpenRouter |
-| Database | PostgreSQL (Supabase) |
-| Hosting | Render + Cloudflare Tunnel (dev) |
+---
 
-## Setup
+## Prerequisites
 
-```bash
-python -m venv .venv
-source .venv/Scripts/activate   # Windows: Scripts; Linux/Mac: bin
-pip install -r requirements.txt
-cp .env.example .env
-```
+- Java 25+
+- Maven 3.9+
+- Docker (for local PostgreSQL and/or integration tests)
 
-## Running
+---
+
+## Step-by-step local setup
+
+### 1. Start a local PostgreSQL instance
 
 ```bash
-# Dev server
-uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
-
-# Expose via Cloudflare Tunnel (dev webhook)
-cloudflared tunnel --url http://localhost:8000
+docker run -d \
+  --name finances-db \
+  -e POSTGRES_DB=finances \
+  -e POSTGRES_USER=finances \
+  -e POSTGRES_PASSWORD=secret \
+  -p 5432:5432 \
+  postgres:16
 ```
 
-## Testing & Linting
+### 2. Set environment variables
+
+Export the variables below in your shell, or create a `.env` file and load it with `export $(grep -v '^#' .env | xargs)`.
+
+See the [Environment Variables](#environment-variables) table for descriptions.
 
 ```bash
-pytest tests/
-ruff check src/
+export DB_URL=jdbc:postgresql://localhost:5432/finances
+export DB_USERNAME=finances
+export DB_PASSWORD=secret
+
+export JWT_SECRET=$(openssl rand -base64 32)
+
+export APP_ADMIN_EMAIL=admin@example.com
+export APP_ADMIN_PASSWORD_HASH='$2a$10$...'   # see below
+
+export OPENROUTER_API_KEY=sk-or-...
+
+export TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
+export TELEGRAM_WEBHOOK_SECRET=any-random-string
+export TELEGRAM_ALLOWED_CHAT_ID=123456789
 ```
 
-## Bot Commands
+#### Generating `APP_ADMIN_PASSWORD_HASH`
 
-| Command | Description |
-|---|---|
-| `/start` | Welcome message |
-| `/ajuda` | List all commands |
-| `/relatorio [semana\|anterior\|mes\|MM/AAAA]` | Expense report for a period |
-| `/exportar [semana\|anterior\|mes\|MM/AAAA]` | Export expenses as CSV |
-| `/categorias` | List active categories |
-| `/categorias add <name>` | Add a new category |
+The hash must be BCrypt. Generate it with any of:
 
-## Java Rewrite (`app/`)
+```bash
+# Using htpasswd (Apache utils)
+htpasswd -bnBC 10 "" yourpassword | tr -d ':\n'
 
-A Java rewrite of this backend is in progress inside `app/`. It follows the same hexagonal (ports & adapters) architecture with a DDD-inspired package structure.
+# Using Python (if available)
+python3 -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt(10)).decode())"
+```
 
-**Stack:** Java 25 · Spring Boot 3.x · Maven · Lombok · Spring Data JPA + Hibernate · JUnit 5 + AssertJ · ArchUnit · JaCoCo
+### 3. Run the API
 
-### Completed
+```bash
+cd app && mvn spring-boot:run
+```
 
-- [x] Domain layer — `Transaction`, `Category`, enums, output port interfaces, domain exceptions
-- [x] Application layer — use cases (CRUD for transactions and categories), commands, queries, `PageResult<T>`
-- [x] Unit tests — in-memory stubs, no Spring context
-- [x] Architecture tests — 4 ArchUnit rules enforcing hexagonal boundaries
-- [x] Infrastructure layer — Flyway migrations (`V1__init.sql`), JPA `@Entity` classes with `@Column` constraints, static mappers, `TransactionRepositoryAdapter` and `CategoryRepositoryAdapter` backed by PostgreSQL
-- [x] LLM adapter — `OpenRouterLlmAdapter` implementing `LlmPort`: extracts transactions from text, PDF, and image (vision) via OpenRouter; `isDuplicate` duplicate check; Haiku 4.5 for text/pdf/duplicates, Sonnet 4.6 for images
-- [x] **REST controllers** — `TransactionController`, `CategoryController`, `BffController` with Spring Security + JWT auth
-- [x] **JWT security filter** — HS256 JWT (JJWT 0.12.x); `POST /api/auth/login` issues tokens; `JwtAuthFilter` validates `Authorization: Bearer`; credentials stored as env vars (`APP_ADMIN_EMAIL`, `APP_ADMIN_PASSWORD_HASH`)
-- [x] **Use case wiring** — `UseCaseConfig` registers all use cases as Spring beans; ArchUnit rule `infrastructureMustNotDependOnApplication` removed to allow this wiring
-- [x] **Centralized API prefix** — `app.api.base-path=/api/v1` in `application.properties`; all controllers reference `${app.api.base-path}`
-- [x] **Report use cases** — `GetSummaryUseCase`, `GetMonthlyUseCase`, `ExportCsvUseCase` with unit tests; `ReportController` exposes three endpoints:
-  - `GET /api/v1/reports/summary?start=&end=[&type=]` — totals per category for a period
-  - `GET /api/v1/reports/monthly?year=` — monthly breakdown by category for a full year
-  - `GET /api/v1/export/csv?start=&end=` — CSV download with UTF-8 BOM (Excel-compatible)
-- [x] **`TransactionRepository` extended** — `listByPeriod` now accepts `Optional<TransactionType>` (null = no type filter); `listRecent(int limit)` added for duplicate checking
-- [x] **Telegram use cases** — `ProcessMessageUseCase`, `ConfirmTransactionUseCase`, `CancelTransactionUseCase`, `ChangeCategoryUseCase` with commands, unit tests, and stubs (`StubNotifierPort`, `StubPendingStatePort`, `StubLlmPort`)
-- [x] **Telegram ports** — `NotifierPort` (with nested `NotificationButton`) and `PendingStatePort` in `domain/telegram/ports/`; `PendingTransaction` record in `domain/telegram/records/`
-- [x] **Telegram infrastructure** — `TelegramNotifierAdapter` (RestClient → Telegram Bot API), `InMemoryPendingStateAdapter` (ConcurrentHashMap + TTL 10 min), `TelegramFileDownloaderAdapter` (photo + PDF; PDFBox 3.x for text extraction and scanned-page rendering)
-- [x] **Telegram webhook** — `TelegramWebhookController` at `POST /webhook`; routes messages (text, photo, PDF) and callbacks (confirm, force_confirm, cancel, edit_category, set_category)
-- [x] **Webhook security** — `TelegramWebhookFilter` validates `X-Telegram-Bot-Api-Secret-Token` header before the JWT filter; `/webhook` is `permitAll()` in Spring Security
-- [x] **`LlmPort` extended** — `categorize(extracted, categoryNames)` added; implemented in `OpenRouterLlmAdapter` using Haiku 4.5 with structured JSON output
-- [x] **`CategoryRepository` extended** — `listAll()` added; backed by `JpaCategoryRepository.findByActiveTrue()` (no pagination)
-- [x] **Integration tests** — Testcontainers (`postgres:16`) with a real PostgreSQL instance; `@DataJpaTest` + `@ServiceConnection` for repository adapters; `@WebMvcTest` + `@MockBean` for REST controllers with real JWT validation
+The API will be available at `http://localhost:8080`.
 
-### Pending
+Flyway runs automatically on startup and applies all migrations in `app/src/main/resources/db/migration/`.
 
-_(none)_
+---
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `DB_URL` | Yes | — | JDBC URL for PostgreSQL. Example: `jdbc:postgresql://localhost:5432/finances` |
+| `DB_USERNAME` | Yes | — | Database username |
+| `DB_PASSWORD` | Yes | — | Database password |
+| `JWT_SECRET` | Yes | — | Base64-encoded HS256 signing key (minimum 32 bytes). Generate with `openssl rand -base64 32` |
+| `APP_ADMIN_EMAIL` | Yes | — | Email used to log in via `POST /api/auth/login` |
+| `APP_ADMIN_PASSWORD_HASH` | Yes | — | BCrypt hash of the admin password |
+| `OPENROUTER_API_KEY` | Yes | — | API key for OpenRouter (LLM calls) |
+| `TELEGRAM_BOT_TOKEN` | Yes | — | Telegram bot token from BotFather |
+| `TELEGRAM_WEBHOOK_SECRET` | Yes | — | Secret string sent by Telegram in `X-Telegram-Bot-Api-Secret-Token` |
+| `TELEGRAM_ALLOWED_CHAT_ID` | Yes | — | Telegram chat ID authorised to interact with the bot |
+| `CORS_ALLOWED_ORIGINS` | No | `http://localhost:3000` | Comma-separated list of allowed CORS origins |
+
+---
+
+## Running tests
+
+Integration tests use Testcontainers and spin up a real PostgreSQL container — Docker must be running.
+
+```bash
+# All tests (unit + integration + architecture)
+cd app && mvn verify
+
+# Unit tests only (no Docker required)
+cd app && mvn test
+```
+
+JaCoCo coverage report is generated at `app/target/site/jacoco/index.html` after `mvn verify`.
+
+---
+
+## API reference
+
+All routes except `/api/auth/**` and `/webhook` require `Authorization: Bearer <token>`.
+
+### Authentication
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/auth/login` | Returns a JWT valid for 7 days |
+
+**Request body:**
+```json
+{ "email": "admin@example.com", "password": "yourpassword" }
+```
+
+**Response:**
+```json
+{ "token": "<jwt>", "expires_in": 604800 }
+```
+
+### Transactions
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/transactions` | List transactions (paginated) |
+| `POST` | `/api/v1/transactions` | Create a transaction |
+| `GET` | `/api/v1/transactions/{id}` | Get a transaction by ID |
+| `PUT` | `/api/v1/transactions/{id}` | Update a transaction |
+| `DELETE` | `/api/v1/transactions/{id}` | Delete a transaction |
+
+### Categories
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/categories` | List active categories |
+| `POST` | `/api/v1/categories` | Create a category |
+| `PATCH` | `/api/v1/categories/{id}` | Update name or active status |
+| `DELETE` | `/api/v1/categories/{id}` | Deactivate a category |
+
+### Reports and export
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/reports/summary?start=&end=` | Totals per category for a period |
+| `GET` | `/api/v1/reports/monthly?year=` | Monthly breakdown by category for a full year |
+| `GET` | `/api/v1/export/csv?start=&end=` | Download expenses as CSV (UTF-8 BOM) |
+
+### Telegram webhook
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/webhook` | Receives Telegram updates (validated via `X-Telegram-Bot-Api-Secret-Token`) |
 
 ---
 

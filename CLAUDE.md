@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code when working in this repository.
 
-**Always read `docs/patterns.md`, `docs/workflows.md`, and `docs/rules.md` before making changes.**
+**Always read `docs/` files (if any) before making changes.**
 
 ## Project Overview
 
@@ -10,101 +10,116 @@ Personal Telegram bot for expense tracking. Receives payment receipts (photo, PD
 
 ## Stack
 
-- **Backend:** Python 3.12+ / FastAPI, hexagonal (ports & adapters) architecture in `src/v2/`
-- **Bot:** httpx (direct HTTP calls to Telegram Bot API, webhook mode, not polling)
-- **LLM:** Claude Sonnet 4.6 (vision + reports) and Haiku 4.5 (text extraction + categorization + duplicate check) via **OpenRouter** (OpenAI-compatible API, not Anthropic direct)
-- **Database:** Supabase (PostgreSQL)
+- **Backend:** Java 25 / Spring Boot 3.x, hexagonal (ports & adapters) architecture
+- **Build:** Maven 3.9+
+- **Bot:** RestClient (direct HTTP calls to Telegram Bot API, webhook mode)
+- **LLM:** Claude Sonnet 4.6 (vision) and Haiku 4.5 (text extraction, categorization, duplicate check) via **OpenRouter** (OpenAI-compatible API)
+- **Database:** PostgreSQL with Flyway migrations; Spring Data JPA + Hibernate
+- **Auth:** JWT (HS256 via JJWT 0.12.x); credentials stored as env vars
 - **Hosting:** Render (prod) + Cloudflare Tunnel (dev)
-- **Scheduler:** APScheduler (monthly auto-reports)
-- **Testing:** pytest + pytest-asyncio; architecture enforced by import-linter
+- **Testing:** JUnit 5 + AssertJ + Testcontainers (integration) + ArchUnit (architecture)
 
 ## Commands
 
 ```bash
-# Setup
-python -m venv .venv
-source .venv/Scripts/activate   # Windows: Scripts; Linux/Mac: bin
-pip install -r requirements.txt
-cp .env.example .env
+# Run dev server (from repo root)
+cd app && mvn spring-boot:run
 
-# Run dev server (set ENVIRONMENT=development in .env to expose /openapi.json)
-uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+# Run all tests (unit + integration + architecture) — Docker required
+cd app && mvn verify
 
-# Run tests
-pytest tests/
+# Run unit tests only (no Docker)
+cd app && mvn test
 
-# Run a single test file
-pytest tests/test_webhook.py -v
-
-# Lint
-ruff check src/
+# Build jar
+cd app && mvn package -DskipTests
 
 # Expose local server via Cloudflare Tunnel (dev webhook)
-cloudflared tunnel --url http://localhost:8000
+cloudflared tunnel --url http://localhost:8080
 ```
 
 ## Architecture
 
-Hexagonal (ports & adapters). Entry point: `src/main.py`.
+Hexagonal (ports & adapters). Entry point: `app/src/main/java/br/com/nathanfiorito/finances/FinancesApplication.java`.
+
+Base package: `br.com.nathanfiorito.finances`
 
 ### Package layout
 
 ```
-src/
-├── config/settings.py       — Pydantic settings (env vars)
-├── main.py                  — FastAPI app + lifespan + /webhook
-├── scheduler/reports.py     — APScheduler monthly auto-report
-└── services/
-    ├── llm.py               — OpenRouter HTTP client (retry + tracing)
-    ├── telegram.py          — Telegram Bot API helpers
-    └── tracing.py           — OpenTelemetry span helpers
-
-src/v2/                      — Hexagonal architecture
-├── bootstrap.py             — Wires adapters → use cases; builds FastAPI router
-├── domain/
-│   ├── entities/            — Expense, Category (dataclasses, no framework imports)
-│   ├── exceptions.py        — Domain error types
-│   ├── ports/               — ABC interfaces (ExpenseRepository, LLMPort, etc.)
-│   └── use_cases/           — All business logic (expenses/, categories/, reports/, telegram/)
-└── adapters/
-    ├── primary/
-    │   ├── bff/             — REST API (/api/v2/...) with JWT auth
-    │   └── telegram/        — Webhook router + message/command/callback handlers
-    └── secondary/
-        ├── supabase/        — Supabase expense + category repositories
-        ├── openrouter/      — OpenRouter LLM adapter
-        ├── telegram_api/    — Telegram notifier adapter
-        └── memory/          — In-memory pending state (TTL 10 min)
+app/src/main/java/br/com/nathanfiorito/finances/
+├── FinancesApplication.java         — Spring Boot entry point
+├── domain/                          — Pure business logic (no framework imports)
+│   ├── transaction/
+│   │   ├── records/                 — Transaction, ExtractedTransaction, SummaryItem, etc.
+│   │   ├── ports/                   — TransactionRepository (interface), LlmPort (interface)
+│   │   ├── enums/                   — TransactionType, PaymentMethod
+│   │   └── exceptions/              — TransactionNotFoundException, LlmExtractionException
+│   ├── category/
+│   │   ├── records/                 — Category
+│   │   ├── ports/                   — CategoryRepository (interface)
+│   │   └── exceptions/              — CategoryNotFoundException
+│   ├── telegram/
+│   │   ├── records/                 — PendingTransaction
+│   │   └── ports/                   — NotifierPort, PendingStatePort
+│   └── shared/
+│       └── PageResult.java          — Generic paginated result
+├── application/                     — Use cases (orchestrate domain, call ports)
+│   ├── transaction/
+│   │   ├── commands/                — CreateTransactionCommand, UpdateTransactionCommand, etc.
+│   │   ├── queries/                 — ListTransactionsQuery, GetTransactionQuery, etc.
+│   │   └── usecases/                — CreateTransactionUseCase, ListTransactionsUseCase, etc.
+│   ├── category/
+│   │   ├── commands/                — CreateCategoryCommand, UpdateCategoryCommand, etc.
+│   │   ├── queries/                 — ListCategoriesQuery
+│   │   └── usecases/                — CreateCategoryUseCase, UpdateCategoryUseCase, etc.
+│   └── telegram/
+│       ├── commands/                — ProcessMessageCommand, ConfirmTransactionCommand, etc.
+│       └── usecases/                — ProcessMessageUseCase, ConfirmTransactionUseCase, etc.
+└── infrastructure/                  — Adapters (Spring, JPA, HTTP clients)
+    ├── config/
+    │   └── UseCaseConfig.java       — Spring @Configuration wiring use cases as beans
+    ├── transaction/
+    │   ├── adapter/                 — TransactionRepositoryAdapter (implements TransactionRepository)
+    │   ├── entity/                  — TransactionEntity (@Entity)
+    │   ├── mapper/                  — TransactionMapper (static)
+    │   └── repository/              — JpaTransactionRepository (Spring Data JPA)
+    ├── category/
+    │   ├── adapter/                 — CategoryRepositoryAdapter
+    │   ├── entity/                  — CategoryEntity
+    │   ├── mapper/                  — CategoryMapper
+    │   └── repository/              — JpaCategoryRepository
+    ├── llm/
+    │   └── adapter/                 — OpenRouterLlmAdapter (implements LlmPort)
+    ├── telegram/
+    │   ├── adapter/                 — TelegramNotifierAdapter, InMemoryPendingStateAdapter
+    │   ├── controller/              — TelegramWebhookController (POST /webhook)
+    │   └── filter/                  — TelegramWebhookFilter (validates secret token)
+    └── web/
+        ├── auth/                    — AuthController (POST /api/auth/login), JwtAuthFilter
+        ├── bff/                     — TransactionController, CategoryController, ReportController
+        └── security/                — Spring Security config
 ```
-
-Architecture contracts are enforced by import-linter (see `tests/v2/test_architecture.py`):
-- Domain never imports from adapters
-- Secondary adapters never import from primary adapters
-- Entities/ports never import from use cases
 
 ### Request flow (Telegram bot)
 
-1. POST to `/webhook` → v2 webhook handler (`src/v2/adapters/primary/telegram/webhook.py`)
-2. Routes to `handle_message`, `handle_command`, or `handle_callback`
-3. `ProcessMessage` use case: calls `LLMPort.extract_expense()` → structured data
-4. Bot sends confirmation via Telegram inline keyboard
-5. On confirmation: `ConfirmExpense` use case → `LLMPort.check_duplicate()` → `ExpenseRepository.save()`
+1. `POST /webhook` → `TelegramWebhookFilter` validates `X-Telegram-Bot-Api-Secret-Token`
+2. `TelegramWebhookController` routes to message, command, or callback handler
+3. `ProcessMessageUseCase`: calls `LlmPort.extract()` → `ExtractedTransaction`
+4. Bot sends confirmation via Telegram inline keyboard (`NotifierPort`)
+5. On confirmation: `ConfirmTransactionUseCase` → `LlmPort.isDuplicate()` → `TransactionRepository.save()`
 
 ### REST API
 
-Routes at `/api/v2/...`, all protected by Supabase JWT:
-- `GET/POST /api/v2/transactions`, `GET/PUT/DELETE /api/v2/transactions/{id}`
-- `GET/POST /api/v2/categories`, `PATCH/DELETE /api/v2/categories/{id}`
-- `GET /api/v2/reports/summary`, `GET /api/v2/reports/monthly`
-- `GET /api/v2/export/csv`
+Routes at `/api/v1/...`, all protected by JWT except `/api/auth/login` and `/webhook`.
 
 ### Key design decisions
 
-- **OpenRouter, not Anthropic direct:** Use OpenAI-compatible SDK at `openrouter.ai/api/v1`. Model IDs: `anthropic/claude-sonnet-4-6` and `anthropic/claude-haiku-4-5`.
-- **Two models:** Sonnet 4.6 for image vision and reports; Haiku 4.5 for text extraction, categorization, duplicate checking (cost optimization).
-- **Mandatory confirmation:** Never persist without explicit user confirmation. Pending state held in `InMemoryPendingStateAdapter` (TTL 10 min).
-- **Webhook security:** Validate `X-Telegram-Bot-Api-Secret-Token` header; restrict to single `TELEGRAM_ALLOWED_CHAT_ID`.
-- **OpenAPI hidden in production:** `openapi_url=None` when `ENVIRONMENT=production` (default). Set `ENVIRONMENT=development` to expose `/openapi.json`.
+- **OpenRouter, not Anthropic direct:** base URL `https://openrouter.ai/api/v1`, model IDs `anthropic/claude-sonnet-4-6` and `anthropic/claude-haiku-4-5`.
+- **Two models:** Sonnet 4.6 for image vision; Haiku 4.5 for text extraction, categorization, duplicate checking.
+- **Mandatory confirmation:** Never persist without explicit user confirmation. Pending state in `InMemoryPendingStateAdapter` (ConcurrentHashMap + TTL 10 min).
+- **Webhook security:** `TelegramWebhookFilter` validates secret token header before the JWT filter.
+- **Architecture enforced by ArchUnit:** domain must not depend on application or infrastructure; application must not depend on infrastructure.
 
 ### Bot commands
 
@@ -117,12 +132,18 @@ Routes at `/api/v2/...`, all protected by Supabase JWT:
 | `/categorias` | List active categories |
 | `/categorias add <name>` | Add a new category |
 
-### Database schema
-
-**Table `transactions`** — `id` (UUID), `amount` (DECIMAL), `date` (DATE), `establishment`, `description`, `category_id` (INT FK), `tax_id`, `entry_type` (`'image'|'text'|'pdf'`), `transaction_type` (`'expense'|'income'`), `payment_method` (`'credit'|'debit'`), `confidence` (0.00–1.00), `raw_data` (JSONB), `created_at`, `updated_at`.
-
-**Table `categories`** — `id` (SERIAL), `name` (VARCHAR UNIQUE), `is_active` (BOOLEAN), `created_at`.
-
 ## Environment Variables
 
-See `.env.example`. Key vars: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_ALLOWED_CHAT_ID`, `OPENROUTER_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `ENVIRONMENT` (default: `production`).
+| Variable | Required | Description |
+|---|---|---|
+| `DB_URL` | Yes | JDBC URL. Example: `jdbc:postgresql://localhost:5432/finances` |
+| `DB_USERNAME` | Yes | Database username |
+| `DB_PASSWORD` | Yes | Database password |
+| `JWT_SECRET` | Yes | Base64-encoded HS256 key (min 32 bytes). Generate: `openssl rand -base64 32` |
+| `APP_ADMIN_EMAIL` | Yes | Admin login email |
+| `APP_ADMIN_PASSWORD_HASH` | Yes | BCrypt hash of admin password |
+| `OPENROUTER_API_KEY` | Yes | OpenRouter API key |
+| `TELEGRAM_BOT_TOKEN` | Yes | Telegram bot token from BotFather |
+| `TELEGRAM_WEBHOOK_SECRET` | Yes | Secret for `X-Telegram-Bot-Api-Secret-Token` header |
+| `TELEGRAM_ALLOWED_CHAT_ID` | Yes | Telegram chat ID authorised to use the bot |
+| `CORS_ALLOWED_ORIGINS` | No | Comma-separated CORS origins (default: `http://localhost:3000`) |
