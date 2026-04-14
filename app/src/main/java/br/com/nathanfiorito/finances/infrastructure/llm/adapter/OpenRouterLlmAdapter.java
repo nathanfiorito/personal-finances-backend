@@ -16,6 +16,7 @@ import com.openai.models.chat.completions.ChatCompletionContentPartImage;
 import com.openai.models.chat.completions.ChatCompletionContentPartText;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import com.openai.models.chat.completions.StructuredChatCompletionCreateParams;
+import io.opentelemetry.api.trace.Tracer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -34,6 +35,7 @@ public class OpenRouterLlmAdapter implements LlmPort {
         .registerModule(new JavaTimeModule());
 
     private final OpenAIClient client;
+    private final Tracer tracer;
 
     // -------------------------------------------------------------------------
     // LlmPort
@@ -59,7 +61,7 @@ public class OpenRouterLlmAdapter implements LlmPort {
                 .responseFormat(LlmCategorizeResponse.class, JsonSchemaLocalValidation.NO)
                 .build();
         try {
-            LlmCategorizeResponse response = callLlm(params);
+            LlmCategorizeResponse response = callLlm(params).content();
             if (response != null && response.category != null
                     && categoryNames.contains(response.category)) {
                 return response.category;
@@ -80,7 +82,7 @@ public class OpenRouterLlmAdapter implements LlmPort {
                 .responseFormat(LlmDuplicateResponse.class, JsonSchemaLocalValidation.NO)
                 .build();
         try {
-            LlmDuplicateResponse response = callLlm(params);
+            LlmDuplicateResponse response = callLlm(params).content();
             return response != null && response.duplicate;
         } catch (Exception e) {
             return false; // safe default — prefer saving over silently dropping
@@ -91,12 +93,23 @@ public class OpenRouterLlmAdapter implements LlmPort {
     // Package-private — overridden by anonymous subclasses in tests
     // -------------------------------------------------------------------------
 
-    <T> T callLlm(StructuredChatCompletionCreateParams<T> params) {
-        return client.chat().completions().create(params)
-            .choices().stream()
+    <T> LlmCallResult<T> callLlm(StructuredChatCompletionCreateParams<T> params) {
+        var completion = client.chat().completions().create(params);
+        T content = completion.choices().stream()
             .flatMap(choice -> choice.message().content().stream())
             .findFirst()
             .orElseThrow(() -> new LlmExtractionException("Empty response from LLM"));
+        long inputTokens = completion.usage()
+            .map(u -> u.promptTokens())
+            .orElse(0L);
+        long outputTokens = completion.usage()
+            .map(u -> u.completionTokens())
+            .orElse(0L);
+        String finishReason = completion.choices().stream()
+            .findFirst()
+            .map(c -> c.finishReason().toString())
+            .orElse("unknown");
+        return new LlmCallResult<>(content, inputTokens, outputTokens, finishReason);
     }
 
     // -------------------------------------------------------------------------
@@ -110,13 +123,13 @@ public class OpenRouterLlmAdapter implements LlmPort {
                 .addUserMessage(buildTextPrompt(content))
                 .responseFormat(LlmExtractionResponse.class, JsonSchemaLocalValidation.NO)
                 .build();
-        return mapToExtracted(callLlm(params), entryType);
+        return mapToExtracted(callLlm(params).content(), entryType);
     }
 
     private ExtractedTransaction extractFromImage(String base64Content) {
         StructuredChatCompletionCreateParams<LlmExtractionResponse> params =
             buildImageParams(base64Content);
-        return mapToExtracted(callLlm(params), "image");
+        return mapToExtracted(callLlm(params).content(), "image");
     }
 
     /** Builds the multimodal params for image extraction. */

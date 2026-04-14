@@ -5,6 +5,7 @@ import br.com.nathanfiorito.finances.domain.transaction.enums.TransactionType;
 import br.com.nathanfiorito.finances.domain.transaction.exceptions.LlmExtractionException;
 import br.com.nathanfiorito.finances.domain.transaction.records.ExtractedTransaction;
 import com.openai.models.chat.completions.StructuredChatCompletionCreateParams;
+import io.opentelemetry.api.OpenTelemetry;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -36,24 +37,24 @@ class OpenRouterLlmAdapterTest {
 
     /** Creates an adapter whose callLlm always returns the given LlmExtractionResponse. */
     private OpenRouterLlmAdapter adapterReturning(LlmExtractionResponse response) {
-        return new OpenRouterLlmAdapter(null) {
+        return new OpenRouterLlmAdapter(null, OpenTelemetry.noop().getTracer("test")) {
             @Override
             @SuppressWarnings("unchecked")
-            <T> T callLlm(StructuredChatCompletionCreateParams<T> params) {
-                return (T) response;
+            <T> LlmCallResult<T> callLlm(StructuredChatCompletionCreateParams<T> params) {
+                return new LlmCallResult<>((T) response, 10L, 5L, "stop");
             }
         };
     }
 
     /** Creates an adapter whose callLlm always returns the given LlmDuplicateResponse. */
     private OpenRouterLlmAdapter adapterReturningDuplicate(boolean duplicate) {
-        return new OpenRouterLlmAdapter(null) {
+        return new OpenRouterLlmAdapter(null, OpenTelemetry.noop().getTracer("test")) {
             @Override
             @SuppressWarnings("unchecked")
-            <T> T callLlm(StructuredChatCompletionCreateParams<T> params) {
+            <T> LlmCallResult<T> callLlm(StructuredChatCompletionCreateParams<T> params) {
                 LlmDuplicateResponse r = new LlmDuplicateResponse();
                 r.duplicate = duplicate;
-                return (T) r;
+                return new LlmCallResult<>((T) r, 10L, 5L, "stop");
             }
         };
     }
@@ -180,9 +181,9 @@ class OpenRouterLlmAdapterTest {
 
     @Test
     void isDuplicateShouldReturnFalseWhenLlmCallThrows() {
-        OpenRouterLlmAdapter adapter = new OpenRouterLlmAdapter(null) {
+        OpenRouterLlmAdapter adapter = new OpenRouterLlmAdapter(null, OpenTelemetry.noop().getTracer("test")) {
             @Override
-            <T> T callLlm(StructuredChatCompletionCreateParams<T> params) {
+            <T> LlmCallResult<T> callLlm(StructuredChatCompletionCreateParams<T> params) {
                 throw new RuntimeException("API unavailable");
             }
         };
