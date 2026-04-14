@@ -50,6 +50,27 @@ public class OpenRouterLlmAdapter implements LlmPort {
     }
 
     @Override
+    public String categorize(ExtractedTransaction extracted, List<String> categoryNames) {
+        if (categoryNames.isEmpty()) return "Outros";
+        StructuredChatCompletionCreateParams<LlmCategorizeResponse> params =
+            ChatCompletionCreateParams.builder()
+                .model(HAIKU)
+                .addUserMessage(buildCategorizePrompt(extracted, categoryNames))
+                .responseFormat(LlmCategorizeResponse.class, JsonSchemaLocalValidation.NO)
+                .build();
+        try {
+            LlmCategorizeResponse response = callLlm(params);
+            if (response != null && response.category != null
+                    && categoryNames.contains(response.category)) {
+                return response.category;
+            }
+        } catch (Exception e) {
+            // safe default
+        }
+        return categoryNames.get(0);
+    }
+
+    @Override
     public boolean isDuplicate(ExtractedTransaction extracted, List<Transaction> recentTransactions) {
         String prompt = buildDuplicatePrompt(extracted, recentTransactions);
         StructuredChatCompletionCreateParams<LlmDuplicateResponse> params =
@@ -177,6 +198,26 @@ public class OpenRouterLlmAdapter implements LlmPort {
             - payment_method: "CREDIT" or "DEBIT", or null if not determinable
             - confidence: your extraction confidence from 0.0 to 1.0
             """;
+    }
+
+    private String buildCategorizePrompt(ExtractedTransaction extracted, List<String> categoryNames) {
+        try {
+            String extractedJson = MAPPER.writeValueAsString(extracted);
+            return """
+                You are a financial assistant. Categorize the following transaction.
+
+                Transaction:
+                %s
+
+                Available categories: %s
+
+                Choose the single category that best matches this transaction.
+                Return exactly: {"category": "<chosen category name>"}
+                You must choose from the available categories list.
+                """.formatted(extractedJson, String.join(", ", categoryNames));
+        } catch (JsonProcessingException e) {
+            throw new LlmExtractionException("Failed to serialize transaction for categorization", e);
+        }
     }
 
     private String buildDuplicatePrompt(ExtractedTransaction extracted,

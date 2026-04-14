@@ -22,6 +22,11 @@ public class StubCategoryRepository implements CategoryRepository {
     }
 
     @Override
+    public List<Category> listAll() {
+        return categories.stream().filter(Category::active).toList();
+    }
+
+    @Override
     public Optional<Category> findById(int id) {
         return categories.stream().filter(c -> c.id() == id).findFirst();
     }

@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -25,6 +26,11 @@ public class CategoryRepositoryAdapter implements CategoryRepository {
         entity.setName(name);
         entity.setActive(true);
         return CategoryMapper.toDomain(jpa.save(entity));
+    }
+
+    @Override
+    public List<Category> listAll() {
+        return jpa.findByActiveTrue().stream().map(CategoryMapper::toDomain).toList();
     }
 
     @Override
