@@ -5,6 +5,14 @@ import br.com.nathanfiorito.finances.domain.transaction.enums.TransactionType;
 import br.com.nathanfiorito.finances.domain.transaction.exceptions.LlmExtractionException;
 import br.com.nathanfiorito.finances.domain.transaction.records.ExtractedTransaction;
 import com.openai.models.chat.completions.StructuredChatCompletionCreateParams;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.data.SpanData;
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -36,24 +44,24 @@ class OpenRouterLlmAdapterTest {
 
     /** Creates an adapter whose callLlm always returns the given LlmExtractionResponse. */
     private OpenRouterLlmAdapter adapterReturning(LlmExtractionResponse response) {
-        return new OpenRouterLlmAdapter(null) {
+        return new OpenRouterLlmAdapter(null, OpenTelemetry.noop().getTracer("test")) {
             @Override
             @SuppressWarnings("unchecked")
-            <T> T callLlm(StructuredChatCompletionCreateParams<T> params) {
-                return (T) response;
+            <T> LlmCallResult<T> callLlm(StructuredChatCompletionCreateParams<T> params) {
+                return new LlmCallResult<>((T) response, 10L, 5L, "stop");
             }
         };
     }
 
     /** Creates an adapter whose callLlm always returns the given LlmDuplicateResponse. */
     private OpenRouterLlmAdapter adapterReturningDuplicate(boolean duplicate) {
-        return new OpenRouterLlmAdapter(null) {
+        return new OpenRouterLlmAdapter(null, OpenTelemetry.noop().getTracer("test")) {
             @Override
             @SuppressWarnings("unchecked")
-            <T> T callLlm(StructuredChatCompletionCreateParams<T> params) {
+            <T> LlmCallResult<T> callLlm(StructuredChatCompletionCreateParams<T> params) {
                 LlmDuplicateResponse r = new LlmDuplicateResponse();
                 r.duplicate = duplicate;
-                return (T) r;
+                return new LlmCallResult<>((T) r, 10L, 5L, "stop");
             }
         };
     }
@@ -180,9 +188,9 @@ class OpenRouterLlmAdapterTest {
 
     @Test
     void isDuplicateShouldReturnFalseWhenLlmCallThrows() {
-        OpenRouterLlmAdapter adapter = new OpenRouterLlmAdapter(null) {
+        OpenRouterLlmAdapter adapter = new OpenRouterLlmAdapter(null, OpenTelemetry.noop().getTracer("test")) {
             @Override
-            <T> T callLlm(StructuredChatCompletionCreateParams<T> params) {
+            <T> LlmCallResult<T> callLlm(StructuredChatCompletionCreateParams<T> params) {
                 throw new RuntimeException("API unavailable");
             }
         };
@@ -190,5 +198,114 @@ class OpenRouterLlmAdapterTest {
         boolean result = adapter.isDuplicate(buildExtracted(), List.of());
 
         assertThat(result).isFalse();
+    }
+
+    // --- span tests ---
+
+    private static Tracer tracerWithExporter(InMemorySpanExporter exporter) {
+        SdkTracerProvider provider = SdkTracerProvider.builder()
+            .addSpanProcessor(SimpleSpanProcessor.create(exporter))
+            .build();
+        return provider.get("test");
+    }
+
+    @Test
+    void extractTransactionShouldCreateSpanWithLlmAttributes() {
+        InMemorySpanExporter exporter = InMemorySpanExporter.create();
+        Tracer tracer = tracerWithExporter(exporter);
+
+        LlmExtractionResponse response = buildResponse(
+            "50.00", "2026-01-15", "Store", null, null, "EXPENSE", null, 0.9
+        );
+        OpenRouterLlmAdapter adapter = new OpenRouterLlmAdapter(null, tracer) {
+            @Override
+            @SuppressWarnings("unchecked")
+            <T> LlmCallResult<T> callLlm(StructuredChatCompletionCreateParams<T> params) {
+                return new LlmCallResult<>((T) response, 100L, 50L, "stop");
+            }
+        };
+
+        adapter.extractTransaction("some receipt text", "text");
+
+        List<SpanData> spans = exporter.getFinishedSpanItems();
+        assertThat(spans).hasSize(1);
+        SpanData span = spans.get(0);
+        assertThat(span.getName()).isEqualTo("llm.openrouter/extract");
+        assertThat(span.getAttributes().get(AttributeKey.stringKey("llm.model")))
+            .isEqualTo("anthropic/claude-haiku-4-5");
+        assertThat(span.getAttributes().get(AttributeKey.stringKey("llm.operation")))
+            .isEqualTo("extract");
+        assertThat(span.getAttributes().get(AttributeKey.longKey("llm.input.tokens")))
+            .isEqualTo(100L);
+        assertThat(span.getAttributes().get(AttributeKey.longKey("llm.output.tokens")))
+            .isEqualTo(50L);
+        assertThat(span.getAttributes().get(AttributeKey.stringKey("llm.finish_reason")))
+            .isEqualTo("stop");
+        assertThat(span.getStatus().getStatusCode()).isEqualTo(StatusCode.UNSET);
+    }
+
+    @Test
+    void extractTransactionShouldMarkSpanAsErrorWhenLlmThrows() {
+        InMemorySpanExporter exporter = InMemorySpanExporter.create();
+        Tracer tracer = tracerWithExporter(exporter);
+
+        OpenRouterLlmAdapter adapter = new OpenRouterLlmAdapter(null, tracer) {
+            @Override
+            <T> LlmCallResult<T> callLlm(StructuredChatCompletionCreateParams<T> params) {
+                throw new RuntimeException("LLM unavailable");
+            }
+        };
+
+        assertThatThrownBy(() -> adapter.extractTransaction("text", "text"))
+            .isInstanceOf(RuntimeException.class)
+            .hasMessageContaining("LLM unavailable");
+
+        SpanData span = exporter.getFinishedSpanItems().get(0);
+        assertThat(span.getName()).isEqualTo("llm.openrouter/extract");
+        assertThat(span.getStatus().getStatusCode()).isEqualTo(StatusCode.ERROR);
+    }
+
+    @Test
+    void extractTransactionShouldUseVisionModelForImageEntryType() {
+        InMemorySpanExporter exporter = InMemorySpanExporter.create();
+        Tracer tracer = tracerWithExporter(exporter);
+
+        LlmExtractionResponse response = buildResponse(
+            "89.90", "2026-03-20", "Restaurante", null, null, "EXPENSE", "CREDIT", 0.92
+        );
+        OpenRouterLlmAdapter adapter = new OpenRouterLlmAdapter(null, tracer) {
+            @Override
+            @SuppressWarnings("unchecked")
+            <T> LlmCallResult<T> callLlm(StructuredChatCompletionCreateParams<T> params) {
+                return new LlmCallResult<>((T) response, 200L, 80L, "stop");
+            }
+        };
+
+        adapter.extractTransaction("base64EncodedImage==", "image");
+
+        SpanData span = exporter.getFinishedSpanItems().get(0);
+        assertThat(span.getName()).isEqualTo("llm.openrouter/extract");
+        assertThat(span.getAttributes().get(AttributeKey.stringKey("llm.model")))
+            .isEqualTo("anthropic/claude-sonnet-4-6");
+    }
+
+    @Test
+    void isDuplicateShouldMarkSpanAsErrorAndReturnFalseWhenLlmThrows() {
+        InMemorySpanExporter exporter = InMemorySpanExporter.create();
+        Tracer tracer = tracerWithExporter(exporter);
+
+        OpenRouterLlmAdapter adapter = new OpenRouterLlmAdapter(null, tracer) {
+            @Override
+            <T> LlmCallResult<T> callLlm(StructuredChatCompletionCreateParams<T> params) {
+                throw new RuntimeException("LLM unavailable");
+            }
+        };
+
+        boolean result = adapter.isDuplicate(buildExtracted(), List.of());
+
+        assertThat(result).isFalse();
+        SpanData span = exporter.getFinishedSpanItems().get(0);
+        assertThat(span.getName()).isEqualTo("llm.openrouter/isDuplicate");
+        assertThat(span.getStatus().getStatusCode()).isEqualTo(StatusCode.ERROR);
     }
 }
