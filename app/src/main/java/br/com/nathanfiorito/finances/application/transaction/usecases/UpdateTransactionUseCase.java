@@ -5,14 +5,12 @@ import br.com.nathanfiorito.finances.domain.transaction.exceptions.TransactionNo
 import br.com.nathanfiorito.finances.domain.transaction.ports.TransactionRepository;
 import br.com.nathanfiorito.finances.domain.transaction.records.Transaction;
 import br.com.nathanfiorito.finances.domain.transaction.records.TransactionUpdate;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 public class UpdateTransactionUseCase {
 
     private final TransactionRepository repository;
-
-    public UpdateTransactionUseCase(TransactionRepository repository) {
-        this.repository = repository;
-    }
 
     public Transaction execute(UpdateTransactionCommand command) {
         repository.findById(command.id())

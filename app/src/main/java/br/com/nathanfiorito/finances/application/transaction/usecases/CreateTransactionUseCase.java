@@ -4,14 +4,12 @@ import br.com.nathanfiorito.finances.application.transaction.commands.CreateTran
 import br.com.nathanfiorito.finances.domain.transaction.ports.TransactionRepository;
 import br.com.nathanfiorito.finances.domain.transaction.records.ExtractedTransaction;
 import br.com.nathanfiorito.finances.domain.transaction.records.Transaction;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 public class CreateTransactionUseCase {
 
     private final TransactionRepository repository;
-
-    public CreateTransactionUseCase(TransactionRepository repository) {
-        this.repository = repository;
-    }
 
     public Transaction execute(CreateTransactionCommand command) {
         ExtractedTransaction extracted = new ExtractedTransaction(
