@@ -10,9 +10,10 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
-// Security returns 403 (not 401) for stateless sessions without auth.
-// After Task 5 adds permitAll() for Swagger paths, both return 404 (no handler registered
-// in this slice). The tests verify that security is NOT blocking these paths (not 401/403).
+// Verifies that Spring Security does not block Swagger paths (not 401/403).
+// When permitted, requests return 404 (no springdoc handler registered in this slice).
+// AuthController.class is chosen arbitrarily — any controller works here since the
+// tests only exercise the security filter chain, not the MVC dispatcher.
 @WebMvcTest(AuthController.class)
 class SwaggerSecurityIT extends BaseControllerIT {
 
