@@ -1,0 +1,132 @@
+package br.com.nathanfiorito.finances.infrastructure.llm.adapter;
+
+import br.com.nathanfiorito.finances.domain.transaction.enums.PaymentMethod;
+import br.com.nathanfiorito.finances.domain.transaction.enums.TransactionType;
+import br.com.nathanfiorito.finances.domain.transaction.exceptions.LlmExtractionException;
+import br.com.nathanfiorito.finances.domain.transaction.records.ExtractedTransaction;
+import com.openai.models.chat.completions.StructuredChatCompletionCreateParams;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class OpenRouterLlmAdapterTest {
+
+    // --- test helpers ---
+
+    private static LlmExtractionResponse buildResponse(
+            String amount, String date, String establishment,
+            String description, String taxId,
+            String transactionType, String paymentMethod, Double confidence) {
+        LlmExtractionResponse r = new LlmExtractionResponse();
+        r.amount = amount;
+        r.date = date;
+        r.establishment = establishment;
+        r.description = description;
+        r.taxId = taxId;
+        r.transactionType = transactionType;
+        r.paymentMethod = paymentMethod;
+        r.confidence = confidence;
+        return r;
+    }
+
+    /** Creates an adapter whose callLlm always returns the given LlmExtractionResponse. */
+    private OpenRouterLlmAdapter adapterReturning(LlmExtractionResponse response) {
+        return new OpenRouterLlmAdapter(null) {
+            @Override
+            @SuppressWarnings("unchecked")
+            <T> T callLlm(StructuredChatCompletionCreateParams<T> params) {
+                return (T) response;
+            }
+        };
+    }
+
+    /** Creates an adapter whose callLlm always returns the given LlmDuplicateResponse. */
+    private OpenRouterLlmAdapter adapterReturningDuplicate(boolean duplicate) {
+        return new OpenRouterLlmAdapter(null) {
+            @Override
+            @SuppressWarnings("unchecked")
+            <T> T callLlm(StructuredChatCompletionCreateParams<T> params) {
+                LlmDuplicateResponse r = new LlmDuplicateResponse();
+                r.duplicate = duplicate;
+                return (T) r;
+            }
+        };
+    }
+
+    // --- extractTransaction: text ---
+
+    @Test
+    void shouldExtractAllFieldsFromTextReceipt() {
+        LlmExtractionResponse response = buildResponse(
+            "50.00", "2026-01-15", "Supermercado Extra",
+            "Compras da semana", "12.345.678/0001-99",
+            "EXPENSE", "DEBIT", 0.95
+        );
+        OpenRouterLlmAdapter adapter = adapterReturning(response);
+
+        ExtractedTransaction result = adapter.extractTransaction("receipt text content", "text");
+
+        assertThat(result.amount()).isEqualByComparingTo(new BigDecimal("50.00"));
+        assertThat(result.date()).isEqualTo(LocalDate.of(2026, 1, 15));
+        assertThat(result.establishment()).isEqualTo("Supermercado Extra");
+        assertThat(result.description()).isEqualTo("Compras da semana");
+        assertThat(result.transactionType()).isEqualTo(TransactionType.EXPENSE);
+        assertThat(result.paymentMethod()).isEqualTo(PaymentMethod.DEBIT);
+        assertThat(result.confidence()).isEqualTo(0.95);
+        assertThat(result.entryType()).isEqualTo("text");
+    }
+
+    @Test
+    void shouldExtractTransactionFromPdf() {
+        LlmExtractionResponse response = buildResponse(
+            "120.50", "2026-02-10", "Posto Shell",
+            null, null, "EXPENSE", "CREDIT", 0.88
+        );
+        OpenRouterLlmAdapter adapter = adapterReturning(response);
+
+        ExtractedTransaction result = adapter.extractTransaction("extracted pdf content", "pdf");
+
+        assertThat(result.amount()).isEqualByComparingTo(new BigDecimal("120.50"));
+        assertThat(result.paymentMethod()).isEqualTo(PaymentMethod.CREDIT);
+        assertThat(result.entryType()).isEqualTo("pdf");
+        assertThat(result.description()).isNull();
+    }
+
+    @Test
+    void shouldDefaultDateToTodayWhenResponseDateIsNull() {
+        LlmExtractionResponse response = buildResponse(
+            "30.00", null, "Padaria", null, null, "EXPENSE", null, 0.70
+        );
+        OpenRouterLlmAdapter adapter = adapterReturning(response);
+
+        ExtractedTransaction result = adapter.extractTransaction("receipt text", "text");
+
+        assertThat(result.date()).isEqualTo(LocalDate.now());
+        assertThat(result.paymentMethod()).isNull();
+    }
+
+    @Test
+    void shouldThrowIllegalArgumentExceptionForUnsupportedEntryType() {
+        OpenRouterLlmAdapter adapter = adapterReturning(null);
+
+        assertThatThrownBy(() -> adapter.extractTransaction("content", "manual"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("manual");
+    }
+
+    @Test
+    void shouldThrowLlmExtractionExceptionWhenAmountIsUnparseable() {
+        LlmExtractionResponse response = buildResponse(
+            "not-a-number", "2026-01-01", "Store",
+            null, null, "EXPENSE", null, 0.5
+        );
+        OpenRouterLlmAdapter adapter = adapterReturning(response);
+
+        assertThatThrownBy(() -> adapter.extractTransaction("receipt", "text"))
+            .isInstanceOf(LlmExtractionException.class);
+    }
+}
