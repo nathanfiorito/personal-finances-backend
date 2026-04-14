@@ -1,10 +1,12 @@
-# CLAUDE.md
+# CLAUDE.md — personal-finances-backend
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working in this repository.
+
+**Always read `docs/patterns.md`, `docs/workflows.md`, and `docs/rules.md` before making changes.**
 
 ## Project Overview
 
-**Personal Finances** — personal Telegram bot for expense tracking. Receives payment receipts (photo, PDF, or free text), extracts and categorizes expenses using AI, and exposes a REST API for the frontend. Single-user, private use.
+Personal Telegram bot for expense tracking. Receives payment receipts (photo, PDF, or free text), extracts and categorizes expenses using AI, and exposes a REST API for the frontend. Single-user, private use.
 
 ## Stack
 
@@ -117,7 +119,7 @@ Routes at `/api/v2/...`, all protected by Supabase JWT:
 
 ### Database schema
 
-**Table `transactions`** — `id` (UUID), `amount` (DECIMAL), `date` (DATE), `establishment`, `description`, `category_id` (INT FK), `tax_id`, `entry_type` (`'image'|'text'|'pdf'`), `transaction_type` (`'expense'|'income'`), `confidence` (0.00–1.00), `raw_data` (JSONB), `created_at`, `updated_at`.
+**Table `transactions`** — `id` (UUID), `amount` (DECIMAL), `date` (DATE), `establishment`, `description`, `category_id` (INT FK), `tax_id`, `entry_type` (`'image'|'text'|'pdf'`), `transaction_type` (`'expense'|'income'`), `payment_method` (`'credit'|'debit'`), `confidence` (0.00–1.00), `raw_data` (JSONB), `created_at`, `updated_at`.
 
 **Table `categories`** — `id` (SERIAL), `name` (VARCHAR UNIQUE), `is_active` (BOOLEAN), `created_at`.
 
