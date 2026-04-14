@@ -158,11 +158,11 @@ public class OpenRouterLlmAdapter implements LlmPort {
     }
 
     // -------------------------------------------------------------------------
-    // Package-private: image params builder (used in tests too)
+    // Private: image params builder
     // -------------------------------------------------------------------------
 
     /** Builds the multimodal params for image extraction. */
-    StructuredChatCompletionCreateParams<LlmExtractionResponse> buildImageParams(String base64Content) {
+    private StructuredChatCompletionCreateParams<LlmExtractionResponse> buildImageParams(String base64Content) {
         ChatCompletionContentPartText textPart = ChatCompletionContentPartText.builder()
             .text(buildImagePrompt())
             .build();

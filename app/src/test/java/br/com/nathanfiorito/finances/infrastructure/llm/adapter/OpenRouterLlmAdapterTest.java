@@ -264,4 +264,48 @@ class OpenRouterLlmAdapterTest {
         assertThat(span.getName()).isEqualTo("llm.openrouter/extract");
         assertThat(span.getStatus().getStatusCode()).isEqualTo(StatusCode.ERROR);
     }
+
+    @Test
+    void extractTransactionShouldUseVisionModelForImageEntryType() {
+        InMemorySpanExporter exporter = InMemorySpanExporter.create();
+        Tracer tracer = tracerWithExporter(exporter);
+
+        LlmExtractionResponse response = buildResponse(
+            "89.90", "2026-03-20", "Restaurante", null, null, "EXPENSE", "CREDIT", 0.92
+        );
+        OpenRouterLlmAdapter adapter = new OpenRouterLlmAdapter(null, tracer) {
+            @Override
+            @SuppressWarnings("unchecked")
+            <T> LlmCallResult<T> callLlm(StructuredChatCompletionCreateParams<T> params) {
+                return new LlmCallResult<>((T) response, 200L, 80L, "stop");
+            }
+        };
+
+        adapter.extractTransaction("base64EncodedImage==", "image");
+
+        SpanData span = exporter.getFinishedSpanItems().get(0);
+        assertThat(span.getName()).isEqualTo("llm.openrouter/extract");
+        assertThat(span.getAttributes().get(AttributeKey.stringKey("llm.model")))
+            .isEqualTo("anthropic/claude-sonnet-4-6");
+    }
+
+    @Test
+    void isDuplicateShouldMarkSpanAsErrorAndReturnFalseWhenLlmThrows() {
+        InMemorySpanExporter exporter = InMemorySpanExporter.create();
+        Tracer tracer = tracerWithExporter(exporter);
+
+        OpenRouterLlmAdapter adapter = new OpenRouterLlmAdapter(null, tracer) {
+            @Override
+            <T> LlmCallResult<T> callLlm(StructuredChatCompletionCreateParams<T> params) {
+                throw new RuntimeException("LLM unavailable");
+            }
+        };
+
+        boolean result = adapter.isDuplicate(buildExtracted(), List.of());
+
+        assertThat(result).isFalse();
+        SpanData span = exporter.getFinishedSpanItems().get(0);
+        assertThat(span.getName()).isEqualTo("llm.openrouter/isDuplicate");
+        assertThat(span.getStatus().getStatusCode()).isEqualTo(StatusCode.ERROR);
+    }
 }
