@@ -79,10 +79,11 @@ A Java rewrite of this backend is in progress inside `app/`. It follows the same
 - [x] **Webhook security** — `TelegramWebhookFilter` validates `X-Telegram-Bot-Api-Secret-Token` header before the JWT filter; `/webhook` is `permitAll()` in Spring Security
 - [x] **`LlmPort` extended** — `categorize(extracted, categoryNames)` added; implemented in `OpenRouterLlmAdapter` using Haiku 4.5 with structured JSON output
 - [x] **`CategoryRepository` extended** — `listAll()` added; backed by `JpaCategoryRepository.findByActiveTrue()` (no pagination)
+- [x] **Integration tests** — Testcontainers (`postgres:16`) with a real PostgreSQL instance; `@DataJpaTest` + `@ServiceConnection` for repository adapters; `@WebMvcTest` + `@MockBean` for REST controllers with real JWT validation
 
 ### Pending
 
-- [ ] **Integration tests** — Testcontainers with a real PostgreSQL instance
+_(none)_
 
 ---
 
