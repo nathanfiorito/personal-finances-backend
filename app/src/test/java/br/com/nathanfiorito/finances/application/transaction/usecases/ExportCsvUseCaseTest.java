@@ -49,7 +49,7 @@ class ExportCsvUseCaseTest {
 
         byte[] csv = useCase.execute(new ExportCsvQuery(START, END));
         String content = new String(csv, StandardCharsets.UTF_8);
-        String[] lines = content.split("\n");
+        String[] lines = content.split("\n", -1);
 
         assertThat(lines).hasSize(3); // BOM+header line, data line, trailing empty
         assertThat(lines[1]).contains("2025-01-10");
@@ -76,7 +76,7 @@ class ExportCsvUseCaseTest {
     void shouldReturnOnlyHeaderForEmptyPeriod() {
         byte[] csv = useCase.execute(new ExportCsvQuery(START, END));
         String content = new String(csv, StandardCharsets.UTF_8);
-        String[] lines = content.split("\n");
+        String[] lines = content.split("\n", -1);
 
         assertThat(lines).hasSize(2); // BOM+header, trailing empty
     }
