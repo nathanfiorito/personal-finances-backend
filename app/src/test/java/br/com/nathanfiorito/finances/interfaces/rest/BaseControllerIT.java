@@ -1,6 +1,9 @@
 package br.com.nathanfiorito.finances.interfaces.rest;
 
+import br.com.nathanfiorito.finances.infrastructure.security.JwtAuthFilter;
 import br.com.nathanfiorito.finances.infrastructure.security.JwtService;
+import br.com.nathanfiorito.finances.infrastructure.security.SecurityConfig;
+import br.com.nathanfiorito.finances.infrastructure.security.TelegramWebhookFilter;
 import br.com.nathanfiorito.finances.infrastructure.telegram.config.TelegramConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
@@ -14,10 +17,14 @@ import org.springframework.test.web.servlet.MockMvc;
  * valid Bearer tokens, and imports TelegramConfig so TelegramWebhookFilter gets its
  * required TelegramProperties bean.
  *
+ * Imports SecurityConfig explicitly because @WebMvcTest's type filter does not include
+ * @EnableWebSecurity configurations via component scan, which means BCryptPasswordEncoder
+ * (defined as a @Bean in SecurityConfig) would not be available otherwise.
+ *
  * JWT secret decodes to "secret-key-for-integration-tests" (32 bytes — valid for HS256).
  * Admin password hash is BCrypt of "password".
  */
-@Import({JwtService.class, TelegramConfig.class})
+@Import({JwtService.class, TelegramConfig.class, JwtAuthFilter.class, TelegramWebhookFilter.class, SecurityConfig.class})
 @TestPropertySource(properties = {
     "jwt.secret=c2VjcmV0LWtleS1mb3ItaW50ZWdyYXRpb24tdGVzdHM=",
     "jwt.expiration-seconds=3600",
