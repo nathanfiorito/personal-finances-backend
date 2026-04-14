@@ -59,12 +59,12 @@ A Java rewrite of this backend is in progress inside `app/`. It follows the same
 
 - [x] Domain layer — `Transaction`, `Category`, enums, output port interfaces, domain exceptions
 - [x] Application layer — use cases (CRUD for transactions and categories), commands, queries, `PageResult<T>`
-- [x] Unit tests — 37 tests with in-memory stubs, no Spring context
+- [x] Unit tests — 65 tests with in-memory stubs, no Spring context
 - [x] Architecture tests — 5 ArchUnit rules enforcing hexagonal boundaries
+- [x] Infrastructure layer — Flyway migrations (`V1__init.sql`), JPA `@Entity` classes with `@Column` constraints, static mappers, `TransactionRepositoryAdapter` and `CategoryRepositoryAdapter` backed by PostgreSQL
 
 ### Pending
 
-- [ ] **Infrastructure layer** — JPA `@Entity` classes with mappers to/from domain Records; `TransactionRepository` and `CategoryRepository` adapters backed by Supabase (PostgreSQL)
 - [ ] **LLM adapter** — `LlmPort` implementation calling OpenRouter
 - [ ] **REST controllers** — `TransactionController` and `CategoryController` (`/api/v2/...`) with Spring Security + Supabase JWT
 - [ ] **Telegram use cases** — `ProcessMessage`, `ConfirmTransaction`, and related handlers
