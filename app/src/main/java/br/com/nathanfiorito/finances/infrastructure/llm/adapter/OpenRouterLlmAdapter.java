@@ -16,7 +16,10 @@ import com.openai.models.chat.completions.ChatCompletionContentPartImage;
 import com.openai.models.chat.completions.ChatCompletionContentPartText;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import com.openai.models.chat.completions.StructuredChatCompletionCreateParams;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -43,49 +46,91 @@ public class OpenRouterLlmAdapter implements LlmPort {
 
     @Override
     public ExtractedTransaction extractTransaction(String content, String entryType) {
-        return switch (entryType) {
-            case "text", "pdf" -> extractFromText(content, entryType);
-            case "image"       -> extractFromImage(content);
-            default            -> throw new IllegalArgumentException(
-                "Unsupported entry type: " + entryType);
-        };
+        String model = "image".equals(entryType) ? SONNET : HAIKU;
+        Span span = tracer.spanBuilder("llm.openrouter/extract")
+            .setAttribute("llm.model", model)
+            .setAttribute("llm.operation", "extract")
+            .startSpan();
+        try (Scope scope = span.makeCurrent()) {
+            LlmCallResult<LlmExtractionResponse> result = switch (entryType) {
+                case "text", "pdf" -> callLlm(
+                    ChatCompletionCreateParams.builder()
+                        .model(HAIKU)
+                        .addUserMessage(buildTextPrompt(content))
+                        .responseFormat(LlmExtractionResponse.class, JsonSchemaLocalValidation.NO)
+                        .build());
+                case "image" -> callLlm(buildImageParams(content));
+                default -> throw new IllegalArgumentException(
+                    "Unsupported entry type: " + entryType);
+            };
+            span.setAttribute("llm.input.tokens", result.inputTokens());
+            span.setAttribute("llm.output.tokens", result.outputTokens());
+            span.setAttribute("llm.finish_reason", result.finishReason());
+            return mapToExtracted(result.content(), entryType);
+        } catch (Exception e) {
+            span.setStatus(StatusCode.ERROR, e.getMessage());
+            span.recordException(e);
+            throw e;
+        } finally {
+            span.end();
+        }
     }
 
     @Override
     public String categorize(ExtractedTransaction extracted, List<String> categoryNames) {
         if (categoryNames.isEmpty()) return "Outros";
-        StructuredChatCompletionCreateParams<LlmCategorizeResponse> params =
-            ChatCompletionCreateParams.builder()
-                .model(HAIKU)
-                .addUserMessage(buildCategorizePrompt(extracted, categoryNames))
-                .responseFormat(LlmCategorizeResponse.class, JsonSchemaLocalValidation.NO)
-                .build();
-        try {
-            LlmCategorizeResponse response = callLlm(params).content();
-            if (response != null && response.category != null
-                    && categoryNames.contains(response.category)) {
-                return response.category;
+        Span span = tracer.spanBuilder("llm.openrouter/categorize")
+            .setAttribute("llm.model", HAIKU)
+            .setAttribute("llm.operation", "categorize")
+            .startSpan();
+        try (Scope scope = span.makeCurrent()) {
+            StructuredChatCompletionCreateParams<LlmCategorizeResponse> params =
+                ChatCompletionCreateParams.builder()
+                    .model(HAIKU)
+                    .addUserMessage(buildCategorizePrompt(extracted, categoryNames))
+                    .responseFormat(LlmCategorizeResponse.class, JsonSchemaLocalValidation.NO)
+                    .build();
+            LlmCallResult<LlmCategorizeResponse> result = callLlm(params);
+            span.setAttribute("llm.input.tokens", result.inputTokens());
+            span.setAttribute("llm.output.tokens", result.outputTokens());
+            span.setAttribute("llm.finish_reason", result.finishReason());
+            if (result.content() != null && result.content().category != null
+                    && categoryNames.contains(result.content().category)) {
+                return result.content().category;
             }
         } catch (Exception e) {
-            // safe default
+            span.setStatus(StatusCode.ERROR, e.getMessage());
+            span.recordException(e);
+        } finally {
+            span.end();
         }
         return categoryNames.get(0);
     }
 
     @Override
     public boolean isDuplicate(ExtractedTransaction extracted, List<Transaction> recentTransactions) {
-        String prompt = buildDuplicatePrompt(extracted, recentTransactions);
-        StructuredChatCompletionCreateParams<LlmDuplicateResponse> params =
-            ChatCompletionCreateParams.builder()
-                .model(HAIKU)
-                .addUserMessage(prompt)
-                .responseFormat(LlmDuplicateResponse.class, JsonSchemaLocalValidation.NO)
-                .build();
-        try {
-            LlmDuplicateResponse response = callLlm(params).content();
-            return response != null && response.duplicate;
+        Span span = tracer.spanBuilder("llm.openrouter/isDuplicate")
+            .setAttribute("llm.model", HAIKU)
+            .setAttribute("llm.operation", "isDuplicate")
+            .startSpan();
+        try (Scope scope = span.makeCurrent()) {
+            StructuredChatCompletionCreateParams<LlmDuplicateResponse> params =
+                ChatCompletionCreateParams.builder()
+                    .model(HAIKU)
+                    .addUserMessage(buildDuplicatePrompt(extracted, recentTransactions))
+                    .responseFormat(LlmDuplicateResponse.class, JsonSchemaLocalValidation.NO)
+                    .build();
+            LlmCallResult<LlmDuplicateResponse> result = callLlm(params);
+            span.setAttribute("llm.input.tokens", result.inputTokens());
+            span.setAttribute("llm.output.tokens", result.outputTokens());
+            span.setAttribute("llm.finish_reason", result.finishReason());
+            return result.content() != null && result.content().duplicate;
         } catch (Exception e) {
-            return false; // safe default — prefer saving over silently dropping
+            span.setStatus(StatusCode.ERROR, e.getMessage());
+            span.recordException(e);
+            return false;
+        } finally {
+            span.end();
         }
     }
 
@@ -113,24 +158,8 @@ public class OpenRouterLlmAdapter implements LlmPort {
     }
 
     // -------------------------------------------------------------------------
-    // Private: extraction helpers
+    // Package-private: image params builder (used in tests too)
     // -------------------------------------------------------------------------
-
-    private ExtractedTransaction extractFromText(String content, String entryType) {
-        StructuredChatCompletionCreateParams<LlmExtractionResponse> params =
-            ChatCompletionCreateParams.builder()
-                .model(HAIKU)
-                .addUserMessage(buildTextPrompt(content))
-                .responseFormat(LlmExtractionResponse.class, JsonSchemaLocalValidation.NO)
-                .build();
-        return mapToExtracted(callLlm(params).content(), entryType);
-    }
-
-    private ExtractedTransaction extractFromImage(String base64Content) {
-        StructuredChatCompletionCreateParams<LlmExtractionResponse> params =
-            buildImageParams(base64Content);
-        return mapToExtracted(callLlm(params).content(), "image");
-    }
 
     /** Builds the multimodal params for image extraction. */
     StructuredChatCompletionCreateParams<LlmExtractionResponse> buildImageParams(String base64Content) {
