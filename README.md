@@ -49,6 +49,31 @@ ruff check src/
 | `/categorias` | List active categories |
 | `/categorias add <name>` | Add a new category |
 
+## Java Rewrite (`app/`)
+
+A Java rewrite of this backend is in progress inside `app/`. It follows the same hexagonal (ports & adapters) architecture with a DDD-inspired package structure.
+
+**Stack:** Java 25 · Spring Boot 3.x · Maven · Lombok · Spring Data JPA + Hibernate · JUnit 5 + AssertJ · ArchUnit · JaCoCo
+
+### Completed
+
+- [x] Domain layer — `Transaction`, `Category`, enums, output port interfaces, domain exceptions
+- [x] Application layer — use cases (CRUD for transactions and categories), commands, queries, `PageResult<T>`
+- [x] Unit tests — 37 tests with in-memory stubs, no Spring context
+- [x] Architecture tests — 5 ArchUnit rules enforcing hexagonal boundaries
+
+### Pending
+
+- [ ] **Infrastructure layer** — JPA `@Entity` classes with mappers to/from domain Records; `TransactionRepository` and `CategoryRepository` adapters backed by Supabase (PostgreSQL)
+- [ ] **LLM adapter** — `LlmPort` implementation calling OpenRouter
+- [ ] **REST controllers** — `TransactionController` and `CategoryController` (`/api/v2/...`) with Spring Security + Supabase JWT
+- [ ] **Telegram use cases** — `ProcessMessage`, `ConfirmTransaction`, and related handlers
+- [ ] **Report use cases** — `GetMonthlySummary`, `ExportCsv`
+- [ ] **Integration tests** — Testcontainers with a real PostgreSQL instance
+- [ ] **JWT security filter** — validate Supabase-issued JWTs on all REST routes
+
+---
+
 ## Documentation
 
 Full documentation lives in [`personal-finances-doc/`](../personal-finances-doc/):
