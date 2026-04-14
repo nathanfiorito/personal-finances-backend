@@ -16,7 +16,7 @@ Personal Telegram bot for expense tracking. Receives payment receipts (photo, PD
 - **LLM:** Claude Sonnet 4.6 (vision) and Haiku 4.5 (text extraction, categorization, duplicate check) via **OpenRouter** (OpenAI-compatible API)
 - **Database:** PostgreSQL with Flyway migrations; Spring Data JPA + Hibernate
 - **Auth:** JWT (HS256 via JJWT 0.12.x); credentials stored as env vars
-- **Hosting:** Render (prod) + Cloudflare Tunnel (dev)
+- **Hosting:** Hostinger VPS with Coolify (prod) + Cloudflare Tunnel (dev)
 - **Testing:** JUnit 5 + AssertJ + Testcontainers (integration) + ArchUnit (architecture)
 
 ## Commands
