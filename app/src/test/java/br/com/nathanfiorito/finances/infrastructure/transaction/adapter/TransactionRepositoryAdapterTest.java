@@ -161,12 +161,63 @@ class TransactionRepositoryAdapterTest {
         List<Transaction> result = adapter.listByPeriod(
             LocalDate.of(2024, 1, 1),
             LocalDate.of(2024, 1, 31),
-            TransactionType.EXPENSE
+            Optional.of(TransactionType.EXPENSE)
         );
 
         assertThat(result).hasSize(2);
         assertThat(result).extracting(Transaction::transactionType)
             .containsOnly(TransactionType.EXPENSE);
+    }
+
+    @Test
+    void listByPeriodWithoutTypeShouldReturnAllTransactionsInRange() {
+        CategoryEntity category = buildCategory(1, "Food");
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+
+        TransactionEntity entity1 = buildEntity(id1, new BigDecimal("10.00"), category);
+        entity1.setDate(LocalDate.of(2024, 1, 10));
+        entity1.setTransactionType(TransactionType.EXPENSE);
+
+        TransactionEntity entity2 = buildEntity(id2, new BigDecimal("20.00"), category);
+        entity2.setDate(LocalDate.of(2024, 1, 20));
+        entity2.setTransactionType(TransactionType.INCOME);
+
+        transactionJpa.store(id1, entity1);
+        transactionJpa.store(id2, entity2);
+
+        List<Transaction> result = adapter.listByPeriod(
+            LocalDate.of(2024, 1, 1),
+            LocalDate.of(2024, 1, 31),
+            Optional.empty()
+        );
+
+        assertThat(result).hasSize(2);
+    }
+
+    @Test
+    void listRecentShouldReturnMostRecentTransactionsUpToLimit() {
+        CategoryEntity category = buildCategory(1, "Food");
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+        UUID id3 = UUID.randomUUID();
+
+        LocalDateTime now = LocalDateTime.now();
+        TransactionEntity e1 = buildEntity(id1, new BigDecimal("10.00"), category);
+        e1.setCreatedAt(now.minusHours(2));
+        TransactionEntity e2 = buildEntity(id2, new BigDecimal("20.00"), category);
+        e2.setCreatedAt(now.minusHours(1));
+        TransactionEntity e3 = buildEntity(id3, new BigDecimal("30.00"), category);
+        e3.setCreatedAt(now);
+
+        transactionJpa.store(id1, e1);
+        transactionJpa.store(id2, e2);
+        transactionJpa.store(id3, e3);
+
+        List<Transaction> result = adapter.listRecent(2);
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).amount()).isEqualByComparingTo(new BigDecimal("30.00"));
     }
 
     @Test
@@ -288,6 +339,22 @@ class TransactionRepositoryAdapterTest {
                 .filter(e -> !e.getDate().isBefore(start) && !e.getDate().isAfter(end))
                 .filter(e -> e.getTransactionType() == type)
                 .toList();
+        }
+
+        @Override
+        public List<TransactionEntity> findByDateBetween(LocalDate start, LocalDate end) {
+            return store.values().stream()
+                .filter(e -> !e.getDate().isBefore(start) && !e.getDate().isAfter(end))
+                .toList();
+        }
+
+        @Override
+        public List<TransactionEntity> findAllByOrderByCreatedAtDesc(Pageable pageable) {
+            List<TransactionEntity> all = store.values().stream()
+                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+                .toList();
+            int limit = pageable.getPageSize();
+            return all.size() <= limit ? all : all.subList(0, limit);
         }
 
         @Override
