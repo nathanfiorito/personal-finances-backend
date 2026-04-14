@@ -11,6 +11,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.openai.client.OpenAIClient;
 import com.openai.core.JsonSchemaLocalValidation;
+import com.openai.models.chat.completions.ChatCompletionContentPart;
+import com.openai.models.chat.completions.ChatCompletionContentPartImage;
+import com.openai.models.chat.completions.ChatCompletionContentPartText;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import com.openai.models.chat.completions.StructuredChatCompletionCreateParams;
 import lombok.RequiredArgsConstructor;
@@ -95,9 +98,24 @@ public class OpenRouterLlmAdapter implements LlmPort {
         return mapToExtracted(callLlm(params), "image");
     }
 
-    /** Builds the multimodal params for image extraction. Implemented in Task 3. */
+    /** Builds the multimodal params for image extraction. */
     StructuredChatCompletionCreateParams<LlmExtractionResponse> buildImageParams(String base64Content) {
-        throw new UnsupportedOperationException("Image params not yet implemented — see Task 3");
+        ChatCompletionContentPartText textPart = ChatCompletionContentPartText.builder()
+            .text(buildImagePrompt())
+            .build();
+        ChatCompletionContentPartImage imagePart = ChatCompletionContentPartImage.builder()
+            .imageUrl(ChatCompletionContentPartImage.ImageUrl.builder()
+                .url("data:image/jpeg;base64," + base64Content)
+                .build())
+            .build();
+        return ChatCompletionCreateParams.builder()
+            .model(SONNET)
+            .addUserMessageOfArrayOfContentParts(List.of(
+                ChatCompletionContentPart.ofText(textPart),
+                ChatCompletionContentPart.ofImageUrl(imagePart)
+            ))
+            .responseFormat(LlmExtractionResponse.class, JsonSchemaLocalValidation.NO)
+            .build();
     }
 
     // -------------------------------------------------------------------------

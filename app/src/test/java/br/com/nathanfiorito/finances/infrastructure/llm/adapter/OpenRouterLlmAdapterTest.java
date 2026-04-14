@@ -129,4 +129,23 @@ class OpenRouterLlmAdapterTest {
         assertThatThrownBy(() -> adapter.extractTransaction("receipt", "text"))
             .isInstanceOf(LlmExtractionException.class);
     }
+
+    // --- extractTransaction: image ---
+
+    @Test
+    void shouldExtractTransactionFromImage() {
+        LlmExtractionResponse response = buildResponse(
+            "89.90", "2026-03-20", "Restaurante Bom Sabor",
+            "Almoço executivo", null, "EXPENSE", "CREDIT", 0.92
+        );
+        OpenRouterLlmAdapter adapter = adapterReturning(response);
+
+        ExtractedTransaction result = adapter.extractTransaction(
+            "base64EncodedImageData==", "image");
+
+        assertThat(result.amount()).isEqualByComparingTo(new BigDecimal("89.90"));
+        assertThat(result.establishment()).isEqualTo("Restaurante Bom Sabor");
+        assertThat(result.entryType()).isEqualTo("image");
+        assertThat(result.paymentMethod()).isEqualTo(PaymentMethod.CREDIT);
+    }
 }
