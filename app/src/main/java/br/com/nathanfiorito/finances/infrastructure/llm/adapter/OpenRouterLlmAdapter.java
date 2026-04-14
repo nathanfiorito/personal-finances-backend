@@ -103,6 +103,7 @@ public class OpenRouterLlmAdapter implements LlmPort {
         ChatCompletionContentPartText textPart = ChatCompletionContentPartText.builder()
             .text(buildImagePrompt())
             .build();
+        // Telegram photo messages are always delivered as JPEG.
         ChatCompletionContentPartImage imagePart = ChatCompletionContentPartImage.builder()
             .imageUrl(ChatCompletionContentPartImage.ImageUrl.builder()
                 .url("data:image/jpeg;base64," + base64Content)
