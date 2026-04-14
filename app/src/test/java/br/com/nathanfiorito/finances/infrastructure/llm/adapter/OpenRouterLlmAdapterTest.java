@@ -152,7 +152,7 @@ class OpenRouterLlmAdapterTest {
 
     // --- isDuplicate ---
 
-    private ExtractedTransaction buildExtracted() {
+    private static ExtractedTransaction buildExtracted() {
         return new ExtractedTransaction(
             new BigDecimal("50.00"), LocalDate.of(2026, 1, 15),
             "Supermercado Extra", "Compras", null,
