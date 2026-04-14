@@ -48,10 +48,11 @@ public class OpenRouterLlmAdapter implements LlmPort {
 
     @Override
     public boolean isDuplicate(ExtractedTransaction extracted, List<Transaction> recentTransactions) {
+        String prompt = buildDuplicatePrompt(extracted, recentTransactions);
         StructuredChatCompletionCreateParams<LlmDuplicateResponse> params =
             ChatCompletionCreateParams.builder()
                 .model(HAIKU)
-                .addUserMessage(buildDuplicatePrompt(extracted, recentTransactions))
+                .addUserMessage(prompt)
                 .responseFormat(LlmDuplicateResponse.class, JsonSchemaLocalValidation.NO)
                 .build();
         try {
@@ -143,7 +144,7 @@ public class OpenRouterLlmAdapter implements LlmPort {
             """.formatted(content);
     }
 
-    static String buildImagePrompt() {
+    private String buildImagePrompt() {
         return """
             You are a financial assistant. Extract expense details from the receipt image.
 
