@@ -60,17 +60,18 @@ A Java rewrite of this backend is in progress inside `app/`. It follows the same
 - [x] Domain layer — `Transaction`, `Category`, enums, output port interfaces, domain exceptions
 - [x] Application layer — use cases (CRUD for transactions and categories), commands, queries, `PageResult<T>`
 - [x] Unit tests — 74 tests with in-memory stubs, no Spring context
-- [x] Architecture tests — 5 ArchUnit rules enforcing hexagonal boundaries
+- [x] Architecture tests — 4 ArchUnit rules enforcing hexagonal boundaries
 - [x] Infrastructure layer — Flyway migrations (`V1__init.sql`), JPA `@Entity` classes with `@Column` constraints, static mappers, `TransactionRepositoryAdapter` and `CategoryRepositoryAdapter` backed by PostgreSQL
 - [x] LLM adapter — `OpenRouterLlmAdapter` implementing `LlmPort`: extracts transactions from text, PDF, and image (vision) via OpenRouter; `isDuplicate` duplicate check; Haiku 4.5 for text/pdf/duplicates, Sonnet 4.6 for images
+- [x] **REST controllers** — `TransactionController`, `CategoryController`, `BffController` (`/api/v2/...`) with Spring Security + JWT auth
+- [x] **JWT security filter** — HS256 JWT (JJWT 0.12.x); `POST /api/auth/login` issues tokens; `JwtAuthFilter` validates `Authorization: Bearer` on all `/api/v2/*` routes; credentials stored as env vars (`APP_ADMIN_EMAIL`, `APP_ADMIN_PASSWORD_HASH`)
+- [x] **Use case wiring** — `UseCaseConfig` registers all use cases as Spring beans; ArchUnit rule `infrastructureMustNotDependOnApplication` removed to allow this wiring
 
 ### Pending
 
-- [ ] **REST controllers** — `TransactionController` and `CategoryController` (`/api/v2/...`) with Spring Security + Supabase JWT
 - [ ] **Telegram use cases** — `ProcessMessage`, `ConfirmTransaction`, and related handlers
 - [ ] **Report use cases** — `GetMonthlySummary`, `ExportCsv`
 - [ ] **Integration tests** — Testcontainers with a real PostgreSQL instance
-- [ ] **JWT security filter** — validate Supabase-issued JWTs on all REST routes
 
 ---
 
