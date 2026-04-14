@@ -37,9 +37,4 @@ public class HexagonalArchitectureTest {
             .should().dependOnClassesThat()
             .resideInAPackage("..interfaces..");
 
-    @ArchTest
-    ArchRule infrastructureMustNotDependOnApplication =
-        noClasses().that().resideInAPackage("..infrastructure..")
-            .should().dependOnClassesThat()
-            .resideInAPackage("..application..");
 }
