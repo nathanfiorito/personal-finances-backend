@@ -194,6 +194,23 @@ class TransactionRepositoryAdapterTest {
     }
 
     @Test
+    void updateShouldThrowCategoryNotFoundExceptionWhenCategoryIdIsInvalid() {
+        UUID id = UUID.randomUUID();
+        CategoryEntity category = buildCategory(1, "Food");
+        transactionJpa.store(id, buildEntity(id, new BigDecimal("50.00"), category));
+
+        TransactionUpdate update = new TransactionUpdate(
+            null, null, null, null,
+            99, // non-existent categoryId
+            null, null
+        );
+
+        assertThatThrownBy(() -> adapter.update(id, update))
+            .isInstanceOf(CategoryNotFoundException.class)
+            .hasMessageContaining("99");
+    }
+
+    @Test
     void updateShouldReturnEmptyWhenTransactionNotFound() {
         TransactionUpdate update = new TransactionUpdate(
             new BigDecimal("99.99"), null, null, null, null, null, null
