@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - 'feature/**'
+      - 'fix/**'
+      - 'chore/**'
+      - 'doc/**'
+      - 'docs/**'
+      - 'test/**'
+      - 'refactor/**'
       - develop
       - main
   pull_request:
@@ -25,7 +31,7 @@ jobs:
           # On pull_request events CI always runs.
           # On push: skip if a PR already exists for this branch,
           # so CI runs exactly once (via the PR sync event).
-          # feature/** → develop, develop → main. main is never skipped.
+          # work branches → develop, develop → main. main is never skipped.
           if [ "${{ github.event_name }}" != "push" ]; then
             echo "skip=false" >> $GITHUB_OUTPUT
             exit 0
@@ -33,7 +39,7 @@ jobs:
 
           BRANCH="${{ github.ref_name }}"
 
-          if echo "$BRANCH" | grep -q "^feature/"; then
+          if echo "$BRANCH" | grep -qE "^(feature|fix|chore|doc|docs|test|refactor)/"; then
             BASE="develop"
           elif [ "$BRANCH" = "develop" ]; then
             BASE="main"
@@ -101,6 +107,12 @@ jobs:
     if: |
       github.event_name == 'push' && (
         startsWith(github.ref_name, 'feature/') ||
+        startsWith(github.ref_name, 'fix/') ||
+        startsWith(github.ref_name, 'chore/') ||
+        startsWith(github.ref_name, 'doc/') ||
+        startsWith(github.ref_name, 'docs/') ||
+        startsWith(github.ref_name, 'test/') ||
+        startsWith(github.ref_name, 'refactor/') ||
         github.ref_name == 'develop'
       )
     runs-on: ubuntu-latest
@@ -115,9 +127,9 @@ jobs:
         run: |
           BRANCH="${{ github.ref_name }}"
 
-          if echo "$BRANCH" | grep -q "^feature/"; then
+          if echo "$BRANCH" | grep -qE "^(feature|fix|chore|doc|docs|test|refactor)/"; then
             BASE="develop"
-            TITLE="${BRANCH#feature/}"
+            TITLE="${BRANCH#*/}"
           else
             BASE="main"
             TITLE="Release: develop → main"
