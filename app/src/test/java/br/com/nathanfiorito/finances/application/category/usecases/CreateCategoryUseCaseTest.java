@@ -32,6 +32,6 @@ class CreateCategoryUseCaseTest {
     void shouldPersistCategoryInRepository() {
         useCase.execute(new CreateCategoryCommand("Transporte"));
 
-        assertThat(repository.listActive()).hasSize(1);
+        assertThat(repository.listPaginated(0, 20, true).total()).isEqualTo(1);
     }
 }

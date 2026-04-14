@@ -4,11 +4,10 @@ import br.com.nathanfiorito.finances.application.category.commands.CreateCategor
 import br.com.nathanfiorito.finances.application.category.commands.DeactivateCategoryCommand;
 import br.com.nathanfiorito.finances.application.category.queries.ListCategoriesQuery;
 import br.com.nathanfiorito.finances.domain.category.records.Category;
+import br.com.nathanfiorito.finances.domain.shared.PageResult;
 import br.com.nathanfiorito.finances.stubs.StubCategoryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -30,10 +29,11 @@ class ListCategoriesUseCaseTest {
         createUseCase.execute(new CreateCategoryCommand("Alimentação"));
         createUseCase.execute(new CreateCategoryCommand("Transporte"));
 
-        List<Category> result = useCase.execute(new ListCategoriesQuery());
+        PageResult<Category> result = useCase.execute(new ListCategoriesQuery());
 
-        assertThat(result).hasSize(2);
-        assertThat(result).allMatch(Category::active);
+        assertThat(result.total()).isEqualTo(2);
+        assertThat(result.items()).hasSize(2);
+        assertThat(result.items()).allMatch(Category::active);
     }
 
     @Test
@@ -41,8 +41,26 @@ class ListCategoriesUseCaseTest {
         Category created = createUseCase.execute(new CreateCategoryCommand("Alimentação"));
         new DeactivateCategoryUseCase(repository).execute(new DeactivateCategoryCommand(created.id()));
 
-        List<Category> result = useCase.execute(new ListCategoriesQuery());
+        PageResult<Category> result = useCase.execute(new ListCategoriesQuery());
 
-        assertThat(result).isEmpty();
+        assertThat(result.total()).isZero();
+        assertThat(result.items()).isEmpty();
+    }
+
+    @Test
+    void shouldCapPageSizeAt100() {
+        PageResult<Category> result = useCase.execute(new ListCategoriesQuery(0, 999, true));
+
+        assertThat(result).isNotNull();
+    }
+
+    @Test
+    void shouldIncludeInactiveCategoriesWhenActiveOnlyIsFalse() {
+        Category created = createUseCase.execute(new CreateCategoryCommand("Alimentação"));
+        new DeactivateCategoryUseCase(repository).execute(new DeactivateCategoryCommand(created.id()));
+
+        PageResult<Category> result = useCase.execute(new ListCategoriesQuery(0, 20, false));
+
+        assertThat(result.total()).isEqualTo(1);
     }
 }
