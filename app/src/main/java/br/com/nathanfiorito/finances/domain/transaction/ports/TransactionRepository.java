@@ -15,7 +15,8 @@ public interface TransactionRepository {
     Transaction save(ExtractedTransaction extracted, int categoryId);
     Optional<Transaction> findById(UUID id);
     PageResult<Transaction> listPaginated(int page, int pageSize);
-    List<Transaction> listByPeriod(LocalDate start, LocalDate end, TransactionType type);
+    List<Transaction> listByPeriod(LocalDate start, LocalDate end, Optional<TransactionType> type);
+    List<Transaction> listRecent(int limit);
     Optional<Transaction> update(UUID id, TransactionUpdate data);
     boolean delete(UUID id);
 }

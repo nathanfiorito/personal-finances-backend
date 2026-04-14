@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v2/bff")
+@RequestMapping("${app.api.base-path}/bff")
 @RequiredArgsConstructor
 public class BffController {
 
