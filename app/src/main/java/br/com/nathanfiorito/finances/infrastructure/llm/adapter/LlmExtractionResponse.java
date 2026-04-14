@@ -10,5 +10,5 @@ class LlmExtractionResponse {
     @JsonProperty("tax_id")           String taxId;
     @JsonProperty("transaction_type") String transactionType;
     @JsonProperty("payment_method")   String paymentMethod;
-    @JsonProperty("confidence")       double confidence;
+    @JsonProperty("confidence")       Double confidence;
 }
