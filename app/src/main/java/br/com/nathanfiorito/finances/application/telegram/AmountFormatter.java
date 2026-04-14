@@ -6,7 +6,7 @@ import java.util.Locale;
 
 public final class AmountFormatter {
 
-    private static final Locale PT_BR = new Locale("pt", "BR");
+    private static final Locale PT_BR = Locale.of("pt", "BR");
 
     private AmountFormatter() {}
 
