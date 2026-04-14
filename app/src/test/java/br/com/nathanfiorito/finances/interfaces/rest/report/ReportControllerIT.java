@@ -9,7 +9,7 @@ import br.com.nathanfiorito.finances.domain.transaction.records.SummaryItem;
 import br.com.nathanfiorito.finances.interfaces.rest.BaseControllerIT;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -25,9 +25,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(ReportController.class)
 class ReportControllerIT extends BaseControllerIT {
 
-    @MockBean private GetSummaryUseCase getSummary;
-    @MockBean private GetMonthlyUseCase getMonthly;
-    @MockBean private ExportCsvUseCase exportCsv;
+    @MockitoBean private GetSummaryUseCase getSummary;
+    @MockitoBean private GetMonthlyUseCase getMonthly;
+    @MockitoBean private ExportCsvUseCase exportCsv;
 
     @Test
     void summaryShouldReturnItemsGroupedByCategoryWhenAuthenticated() throws Exception {

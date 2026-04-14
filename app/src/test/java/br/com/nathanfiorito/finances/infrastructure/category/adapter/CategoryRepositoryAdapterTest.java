@@ -172,6 +172,13 @@ class CategoryRepositoryAdapterTest {
         }
 
         @Override
+        public List<CategoryEntity> findByActiveTrue() {
+            return store.values().stream()
+                .filter(CategoryEntity::isActive)
+                .toList();
+        }
+
+        @Override
         public Page<CategoryEntity> findAll(Pageable pageable) {
             List<CategoryEntity> all = store.values().stream().toList();
             return new PageImpl<>(all, pageable, all.size());

@@ -13,7 +13,7 @@ import br.com.nathanfiorito.finances.domain.transaction.records.Transaction;
 import br.com.nathanfiorito.finances.interfaces.rest.BaseControllerIT;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 
 import java.math.BigDecimal;
@@ -35,11 +35,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(TransactionController.class)
 class TransactionControllerIT extends BaseControllerIT {
 
-    @MockBean private CreateTransactionUseCase createTransaction;
-    @MockBean private GetTransactionUseCase getTransaction;
-    @MockBean private ListTransactionsUseCase listTransactions;
-    @MockBean private UpdateTransactionUseCase updateTransaction;
-    @MockBean private DeleteTransactionUseCase deleteTransaction;
+    @MockitoBean private CreateTransactionUseCase createTransaction;
+    @MockitoBean private GetTransactionUseCase getTransaction;
+    @MockitoBean private ListTransactionsUseCase listTransactions;
+    @MockitoBean private UpdateTransactionUseCase updateTransaction;
+    @MockitoBean private DeleteTransactionUseCase deleteTransaction;
 
     private Transaction sampleTransaction() {
         return new Transaction(

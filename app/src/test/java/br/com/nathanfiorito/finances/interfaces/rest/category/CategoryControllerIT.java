@@ -10,7 +10,7 @@ import br.com.nathanfiorito.finances.domain.shared.PageResult;
 import br.com.nathanfiorito.finances.interfaces.rest.BaseControllerIT;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 
 import java.util.List;
@@ -27,10 +27,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(CategoryController.class)
 class CategoryControllerIT extends BaseControllerIT {
 
-    @MockBean private CreateCategoryUseCase createCategory;
-    @MockBean private ListCategoriesUseCase listCategories;
-    @MockBean private UpdateCategoryUseCase updateCategory;
-    @MockBean private DeactivateCategoryUseCase deactivateCategory;
+    @MockitoBean private CreateCategoryUseCase createCategory;
+    @MockitoBean private ListCategoriesUseCase listCategories;
+    @MockitoBean private UpdateCategoryUseCase updateCategory;
+    @MockitoBean private DeactivateCategoryUseCase deactivateCategory;
 
     private Category sampleCategory() {
         return new Category(1, "Alimentação", true);
