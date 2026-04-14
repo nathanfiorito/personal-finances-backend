@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -147,5 +148,47 @@ class OpenRouterLlmAdapterTest {
         assertThat(result.establishment()).isEqualTo("Restaurante Bom Sabor");
         assertThat(result.entryType()).isEqualTo("image");
         assertThat(result.paymentMethod()).isEqualTo(PaymentMethod.CREDIT);
+    }
+
+    // --- isDuplicate ---
+
+    private ExtractedTransaction buildExtracted() {
+        return new ExtractedTransaction(
+            new BigDecimal("50.00"), LocalDate.of(2026, 1, 15),
+            "Supermercado Extra", "Compras", null,
+            "text", TransactionType.EXPENSE, PaymentMethod.DEBIT, 0.95
+        );
+    }
+
+    @Test
+    void isDuplicateShouldReturnTrueWhenLlmSaysDuplicate() {
+        OpenRouterLlmAdapter adapter = adapterReturningDuplicate(true);
+
+        boolean result = adapter.isDuplicate(buildExtracted(), List.of());
+
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    void isDuplicateShouldReturnFalseWhenLlmSaysNotDuplicate() {
+        OpenRouterLlmAdapter adapter = adapterReturningDuplicate(false);
+
+        boolean result = adapter.isDuplicate(buildExtracted(), List.of());
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void isDuplicateShouldReturnFalseWhenLlmCallThrows() {
+        OpenRouterLlmAdapter adapter = new OpenRouterLlmAdapter(null) {
+            @Override
+            <T> T callLlm(StructuredChatCompletionCreateParams<T> params) {
+                throw new RuntimeException("API unavailable");
+            }
+        };
+
+        boolean result = adapter.isDuplicate(buildExtracted(), List.of());
+
+        assertThat(result).isFalse();
     }
 }
