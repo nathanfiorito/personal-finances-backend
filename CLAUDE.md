@@ -167,7 +167,7 @@ app/src/main/java/br/com/nathanfiorito/finances/
 | GET | `/api/v1/export/csv?start=&end=` | ReportController (UTF-8 BOM) |
 | POST | `/webhook` | TelegramWebhookController |
 
-Errors funnel through `interfaces/rest/shared/GlobalExceptionHandler`.
+Errors funnel through `interfaces/rest/shared/GlobalExceptionHandler`. All error responses use the standardised `ErrorResponse` record (`interfaces/rest/shared/ErrorResponse.java`) with fields: `status` (int), `error` (String), `message` (String), `timestamp` (LocalDateTime), and optional `details` (Map — only on validation failures). Handles: validation (400), missing/invalid params (400), malformed body (400), access denied (403), not found (404), method not allowed (405), data conflict (409), unsupported media type (415), and a generic catch-all (500).
 
 ### Database
 
