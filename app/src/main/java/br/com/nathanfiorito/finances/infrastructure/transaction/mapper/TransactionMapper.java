@@ -23,6 +23,8 @@ public class TransactionMapper {
             entity.getTransactionType(),
             entity.getPaymentMethod(),
             entity.getConfidence(),
+            entity.getCard() != null ? entity.getCard().getId() : null,
+            entity.getCard() != null ? entity.getCard().getAlias() : null,
             entity.getCreatedAt()
         );
     }

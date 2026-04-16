@@ -13,9 +13,11 @@ import java.util.UUID;
 
 public interface TransactionRepository {
     Transaction save(ExtractedTransaction extracted, int categoryId);
+    Transaction save(ExtractedTransaction extracted, int categoryId, Integer cardId);
     Optional<Transaction> findById(UUID id);
     PageResult<Transaction> listPaginated(int page, int pageSize);
     List<Transaction> listByPeriod(LocalDate start, LocalDate end, Optional<TransactionType> type);
+    List<Transaction> listByCardAndPeriod(int cardId, LocalDate start, LocalDate end);
     List<Transaction> listRecent(int limit);
     Optional<Transaction> update(UUID id, TransactionUpdate data);
     boolean delete(UUID id);

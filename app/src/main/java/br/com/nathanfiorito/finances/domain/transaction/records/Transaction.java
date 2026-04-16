@@ -21,5 +21,7 @@ public record Transaction(
     TransactionType transactionType,
     PaymentMethod paymentMethod,
     Double confidence,
+    Integer cardId,
+    String cardAlias,
     LocalDateTime createdAt
 ) {}
