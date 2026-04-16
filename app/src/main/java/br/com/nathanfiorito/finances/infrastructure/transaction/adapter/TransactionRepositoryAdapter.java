@@ -18,6 +18,7 @@ import br.com.nathanfiorito.finances.infrastructure.transaction.repository.JpaTr
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -64,7 +65,8 @@ public class TransactionRepositoryAdapter implements TransactionRepository {
 
     @Override
     public PageResult<Transaction> listPaginated(int page, int pageSize) {
-        Page<TransactionEntity> result = jpa.findAll(PageRequest.of(page, pageSize));
+        Sort sort = Sort.by(Sort.Order.desc("date"), Sort.Order.desc("createdAt"));
+        Page<TransactionEntity> result = jpa.findAll(PageRequest.of(page, pageSize, sort));
         return new PageResult<>(
             result.getContent().stream().map(TransactionMapper::toDomain).toList(),
             (int) result.getTotalElements()

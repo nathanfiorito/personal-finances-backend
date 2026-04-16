@@ -111,6 +111,44 @@ class TransactionRepositoryAdapterIT extends BaseRepositoryIT {
     }
 
     @Test
+    void listPaginatedShouldHonorPageSize() {
+        for (int i = 0; i < 25; i++) {
+            adapter.save(
+                buildExtracted(new BigDecimal("1.00"), LocalDate.of(2024, 1, 1).plusDays(i), TransactionType.EXPENSE),
+                categoryId
+            );
+        }
+
+        PageResult<Transaction> page = adapter.listPaginated(0, 20);
+
+        assertThat(page.items()).hasSize(20);
+        assertThat(page.total()).isEqualTo(25);
+    }
+
+    @Test
+    void listPaginatedShouldSortByDateDescThenCreatedAtDesc() {
+        Transaction olderDateFirstCreated = adapter.save(
+            buildExtracted(new BigDecimal("10.00"), LocalDate.of(2024, 1, 1), TransactionType.EXPENSE), categoryId);
+        Transaction newestDateFirstCreated = adapter.save(
+            buildExtracted(new BigDecimal("20.00"), LocalDate.of(2024, 1, 3), TransactionType.EXPENSE), categoryId);
+        Transaction middleDate = adapter.save(
+            buildExtracted(new BigDecimal("30.00"), LocalDate.of(2024, 1, 2), TransactionType.EXPENSE), categoryId);
+        Transaction newestDateLastCreated = adapter.save(
+            buildExtracted(new BigDecimal("40.00"), LocalDate.of(2024, 1, 3), TransactionType.EXPENSE), categoryId);
+
+        PageResult<Transaction> result = adapter.listPaginated(0, 10);
+
+        assertThat(result.items())
+            .extracting(Transaction::id)
+            .containsExactly(
+                newestDateLastCreated.id(),
+                newestDateFirstCreated.id(),
+                middleDate.id(),
+                olderDateFirstCreated.id()
+            );
+    }
+
+    @Test
     void listByPeriodWithTypeShouldReturnOnlyMatchingTransactions() {
         adapter.save(buildExtracted(new BigDecimal("10.00"), LocalDate.of(2024, 6, 10), TransactionType.EXPENSE), categoryId);
         adapter.save(buildExtracted(new BigDecimal("20.00"), LocalDate.of(2024, 6, 20), TransactionType.INCOME), categoryId);
