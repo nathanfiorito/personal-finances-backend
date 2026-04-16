@@ -27,6 +27,7 @@ public class CardEntity {
     private String bank;
 
     @Column(name = "last_four_digits", nullable = false, length = 4)
+    @JdbcTypeCode(SqlTypes.CHAR)
     private String lastFourDigits;
 
     @Column(name = "closing_day", nullable = false)
