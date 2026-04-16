@@ -8,11 +8,13 @@ import br.com.nathanfiorito.finances.domain.telegram.ports.PendingStatePort;
 import br.com.nathanfiorito.finances.domain.telegram.records.PendingTransaction;
 import br.com.nathanfiorito.finances.domain.transaction.records.ExtractedTransaction;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @RequiredArgsConstructor
 public class ChangeCategoryUseCase {
 
@@ -22,10 +24,12 @@ public class ChangeCategoryUseCase {
     private final NotifierPort notifier;
 
     public void execute(ChangeCategoryCommand cmd) {
+        log.info("Changing category: chatId={}, newCategory={}, newCategoryId={}", cmd.chatId(), cmd.newCategory(), cmd.newCategoryId());
         boolean updated = pendingState.updateCategory(
             cmd.chatId(), cmd.newCategory(), cmd.newCategoryId()
         );
         if (!updated) {
+            log.warn("Pending transaction expired for category change: chatId={}", cmd.chatId());
             notifier.editMessage(cmd.chatId(), cmd.messageId(),
                 "⏱️ Operação expirada. Envie a transação novamente.", null, null);
             return;

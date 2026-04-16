@@ -10,6 +10,7 @@ import br.com.nathanfiorito.finances.domain.transaction.enums.TransactionType;
 import br.com.nathanfiorito.finances.interfaces.rest.report.dto.MonthlyItemResponse;
 import br.com.nathanfiorito.finances.interfaces.rest.report.dto.SummaryItemResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -24,6 +25,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @RestController
 @RequestMapping("${app.api.base-path}")
 @RequiredArgsConstructor
@@ -39,11 +41,13 @@ public class ReportController {
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
         @RequestParam(required = false) TransactionType type
     ) {
+        log.debug("GET /reports/summary: start={}, end={}, type={}", start, end, type);
         List<SummaryItemResponse> items = getSummary
             .execute(new GetSummaryQuery(start, end, Optional.ofNullable(type)))
             .stream()
             .map(SummaryItemResponse::from)
             .toList();
+        log.debug("GET /reports/summary: returned {} categories", items.size());
         return ResponseEntity.ok(items);
     }
 
@@ -51,11 +55,13 @@ public class ReportController {
     public ResponseEntity<List<MonthlyItemResponse>> monthly(
         @RequestParam int year
     ) {
+        log.debug("GET /reports/monthly: year={}", year);
         List<MonthlyItemResponse> items = getMonthly
             .execute(new GetMonthlyQuery(year))
             .stream()
             .map(MonthlyItemResponse::from)
             .toList();
+        log.debug("GET /reports/monthly: returned {} months", items.size());
         return ResponseEntity.ok(items);
     }
 
@@ -64,6 +70,7 @@ public class ReportController {
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
     ) {
+        log.info("GET /export/csv: start={}, end={}", start, end);
         byte[] content = exportCsv.execute(new ExportCsvQuery(start, end));
         String filename = "transactions_" + start + "_" + end + ".csv";
 
