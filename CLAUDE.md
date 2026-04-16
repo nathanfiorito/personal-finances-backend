@@ -265,6 +265,12 @@ cd app && mvn test -Dtest=CreateTransactionUseCaseTest
 cd app && mvn verify -Dit.test=TransactionControllerIT   # integration tests
 ```
 
+## Testing Standards
+
+- Every change must ship with unit **and** integration tests covering the new/modified code paths.
+- Minimum test coverage: **80%**, measured by JaCoCo (`app/target/site/jacoco/index.html` after `mvn verify`). Do not merge work that drops below this threshold.
+- **Entity changes require integration tests.** Any creation or modification of a JPA entity (or its Flyway migration) must be accompanied by Testcontainers-backed integration tests (`*IT.java`) that exercise the full persistence path, so schema drift and environment-specific regressions are caught before deploy.
+
 ## Specs
 
 Design specs live in `specs/` and should be read before touching the related area:
