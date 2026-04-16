@@ -6,6 +6,7 @@ import br.com.nathanfiorito.finances.domain.transaction.records.MonthlyCategoryI
 import br.com.nathanfiorito.finances.domain.transaction.records.MonthlyItem;
 import br.com.nathanfiorito.finances.domain.transaction.records.Transaction;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,12 +18,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
+@Slf4j
 @RequiredArgsConstructor
 public class GetMonthlyUseCase {
 
     private final TransactionRepository repository;
 
     public List<MonthlyItem> execute(GetMonthlyQuery query) {
+        log.debug("Generating monthly report: year={}", query.year());
         LocalDate start = LocalDate.of(query.year(), 1, 1);
         LocalDate end   = LocalDate.of(query.year(), 12, 31);
 
@@ -49,6 +52,7 @@ public class GetMonthlyUseCase {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
             result.add(new MonthlyItem(entry.getKey(), total, categories));
         }
+        log.debug("Monthly report generated: year={}, months={}, transactions={}", query.year(), result.size(), transactions.size());
         return result;
     }
 }

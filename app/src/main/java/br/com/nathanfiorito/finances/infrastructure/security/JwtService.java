@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -11,6 +12,7 @@ import javax.crypto.SecretKey;
 import java.util.Base64;
 import java.util.Date;
 
+@Slf4j
 @Service
 public class JwtService {
 
@@ -21,6 +23,7 @@ public class JwtService {
     private long expirationSeconds;
 
     public String generate(String subject) {
+        log.debug("Generating JWT: subject={}, expirationSeconds={}", subject, expirationSeconds);
         return Jwts.builder()
             .subject(subject)
             .issuedAt(new Date())
@@ -38,6 +41,7 @@ public class JwtService {
             parse(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
+            log.debug("JWT validation failed: {}", e.getMessage());
             return false;
         }
     }
