@@ -12,19 +12,16 @@ public final class InvoicePeriodCalculator {
     /**
      * Returns the current invoice period for a given closing day.
      * The period runs from (previous closing + 1) to (current closing).
-     * A new period begins exactly on the day after the closing date; on any
-     * other day (before, on, or more than one day after closing) the period
-     * that ends on this month's closing date is returned.
      */
     public static Period currentPeriod(int closingDay, LocalDate today) {
         LocalDate closingThisMonth = clampDay(today.getYear(), today.getMonthValue(), closingDay);
 
-        if (today.equals(closingThisMonth.plusDays(1))) {
-            // Exactly the first day of the new cycle — return the new period
+        if (today.isAfter(closingThisMonth)) {
+            // We're past this month's closing — current period ends next month
             LocalDate nextClosing = clampDay(today.getYear(), today.getMonthValue() + 1, closingDay);
-            return new Period(today, nextClosing);
+            return new Period(closingThisMonth.plusDays(1), nextClosing);
         } else {
-            // Before closing, on closing, or more than one day after closing — return the period ending this month
+            // We're before or on this month's closing — current period ends this month
             LocalDate prevClosing = clampDay(today.getYear(), today.getMonthValue() - 1, closingDay);
             return new Period(prevClosing.plusDays(1), closingThisMonth);
         }

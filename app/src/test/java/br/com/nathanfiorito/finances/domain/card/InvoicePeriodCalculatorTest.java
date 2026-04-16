@@ -10,11 +10,11 @@ class InvoicePeriodCalculatorTest {
 
     @Test
     void currentPeriodWhenTodayIsAfterClosingDay() {
-        // closing_day=15, today=April 20 -> period is March 16 to April 15
+        // closing_day=15, today=April 20 -> new period: April 16 to May 15
         var result = InvoicePeriodCalculator.currentPeriod(15, LocalDate.of(2026, 4, 20));
 
-        assertThat(result.start()).isEqualTo(LocalDate.of(2026, 3, 16));
-        assertThat(result.end()).isEqualTo(LocalDate.of(2026, 4, 15));
+        assertThat(result.start()).isEqualTo(LocalDate.of(2026, 4, 16));
+        assertThat(result.end()).isEqualTo(LocalDate.of(2026, 5, 15));
     }
 
     @Test
@@ -56,11 +56,11 @@ class InvoicePeriodCalculatorTest {
 
     @Test
     void previousPeriodReturnsOnePeriodBack() {
-        // closing_day=15, today=April 20 -> current is Mar 16-Apr 15, previous is Feb 16-Mar 15
+        // closing_day=15, today=April 20 -> current is Apr 16-May 15, previous is Mar 16-Apr 15
         var result = InvoicePeriodCalculator.previousPeriod(15, LocalDate.of(2026, 4, 20));
 
-        assertThat(result.start()).isEqualTo(LocalDate.of(2026, 2, 16));
-        assertThat(result.end()).isEqualTo(LocalDate.of(2026, 3, 15));
+        assertThat(result.start()).isEqualTo(LocalDate.of(2026, 3, 16));
+        assertThat(result.end()).isEqualTo(LocalDate.of(2026, 4, 15));
     }
 
     @Test
