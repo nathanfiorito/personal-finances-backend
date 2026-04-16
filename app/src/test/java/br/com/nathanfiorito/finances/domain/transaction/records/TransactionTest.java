@@ -20,7 +20,7 @@ class TransactionTest {
             id, new BigDecimal("100.00"), LocalDate.of(2026, 1, 15),
             "Supermarket", "Weekly groceries", 1, "Alimentação",
             null, "text", TransactionType.EXPENSE, PaymentMethod.DEBIT,
-            0.95, LocalDateTime.of(2026, 1, 15, 10, 0)
+            0.95, null, null, LocalDateTime.of(2026, 1, 15, 10, 0)
         );
 
         assertThat(transaction.id()).isEqualTo(id);
@@ -35,7 +35,7 @@ class TransactionTest {
         var transaction = new Transaction(
             UUID.randomUUID(), new BigDecimal("5000.00"), LocalDate.now(),
             "Employer", null, 2, "Salário", null, "text",
-            TransactionType.INCOME, PaymentMethod.CREDIT, 1.0, LocalDateTime.now()
+            TransactionType.INCOME, PaymentMethod.CREDIT, 1.0, null, null, LocalDateTime.now()
         );
 
         assertThat(transaction.transactionType()).isEqualTo(TransactionType.INCOME);
@@ -47,7 +47,7 @@ class TransactionTest {
         var transaction = new Transaction(
             UUID.randomUUID(), new BigDecimal("30.00"), LocalDate.now(),
             null, null, 1, "Transport", null, "text",
-            TransactionType.EXPENSE, PaymentMethod.DEBIT, null, LocalDateTime.now()
+            TransactionType.EXPENSE, PaymentMethod.DEBIT, null, null, null, LocalDateTime.now()
         );
 
         assertThat(transaction.establishment()).isNull();

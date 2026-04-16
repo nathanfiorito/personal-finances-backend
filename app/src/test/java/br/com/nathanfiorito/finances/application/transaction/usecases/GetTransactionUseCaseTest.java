@@ -33,7 +33,7 @@ class GetTransactionUseCaseTest {
             new CreateTransactionCommand(
                 new BigDecimal("75.00"), LocalDate.now(),
                 1, "text", TransactionType.EXPENSE, PaymentMethod.DEBIT,
-                "Store", null, null, 0.8
+                "Store", null, null, 0.8, null
             )
         );
     }

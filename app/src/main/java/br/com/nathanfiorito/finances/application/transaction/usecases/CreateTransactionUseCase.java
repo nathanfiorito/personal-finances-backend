@@ -27,7 +27,7 @@ public class CreateTransactionUseCase {
             command.paymentMethod(),
             command.confidence()
         );
-        Transaction saved = repository.save(extracted, command.categoryId());
+        Transaction saved = repository.save(extracted, command.categoryId(), command.cardId());
         log.info("Transaction created: id={}, amount={}, category={}", saved.id(), saved.amount(), saved.category());
         return saved;
     }

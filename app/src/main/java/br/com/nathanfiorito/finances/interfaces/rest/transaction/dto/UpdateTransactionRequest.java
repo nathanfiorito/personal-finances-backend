@@ -15,7 +15,8 @@ public record UpdateTransactionRequest(
     String description,
     Integer categoryId,
     String paymentMethod,
-    String transactionType
+    String transactionType,
+    Integer cardId
 ) {
     public UpdateTransactionCommand toCommand(UUID id) {
         return new UpdateTransactionCommand(
@@ -26,7 +27,8 @@ public record UpdateTransactionRequest(
             description,
             categoryId,
             paymentMethod != null ? PaymentMethod.valueOf(paymentMethod.toUpperCase()) : null,
-            transactionType != null ? TransactionType.valueOf(transactionType.toUpperCase()) : null
+            transactionType != null ? TransactionType.valueOf(transactionType.toUpperCase()) : null,
+            cardId
         );
     }
 }
