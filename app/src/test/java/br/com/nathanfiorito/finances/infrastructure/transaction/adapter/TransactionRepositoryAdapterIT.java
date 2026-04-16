@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.transaction.TestTransaction;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -213,5 +214,32 @@ class TransactionRepositoryAdapterIT extends BaseRepositoryIT {
         boolean result = adapter.delete(UUID.randomUUID());
 
         assertThat(result).isFalse();
+    }
+
+    @Test
+    void updateShouldInitializeLazyCategoryProxyOutsideAmbientTransaction() {
+        Transaction saved = adapter.save(defaultExtracted(), categoryId);
+        UUID savedId = saved.id();
+
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+
+        try {
+            TransactionUpdate update = new TransactionUpdate(
+                new BigDecimal("777.77"), null, null, null, null, null, null, null
+            );
+
+            Optional<Transaction> result = adapter.update(savedId, update);
+
+            assertThat(result).isPresent();
+            assertThat(result.get().amount()).isEqualByComparingTo(new BigDecimal("777.77"));
+            assertThat(result.get().category()).isEqualTo("Food");
+        } finally {
+            TestTransaction.start();
+            TestTransaction.flagForCommit();
+            adapter.delete(savedId);
+            categoryJpa.deleteById(categoryId);
+            TestTransaction.end();
+        }
     }
 }
