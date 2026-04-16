@@ -2,6 +2,7 @@ package br.com.nathanfiorito.finances.infrastructure.transaction.entity;
 
 import br.com.nathanfiorito.finances.domain.transaction.enums.PaymentMethod;
 import br.com.nathanfiorito.finances.domain.transaction.enums.TransactionType;
+import br.com.nathanfiorito.finances.infrastructure.card.entity.CardEntity;
 import br.com.nathanfiorito.finances.infrastructure.category.entity.CategoryEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -48,6 +49,10 @@ public class TransactionEntity {
 
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "card_id")
+    private CardEntity card;
 
     @Column
     private Double confidence;

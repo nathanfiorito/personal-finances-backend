@@ -44,7 +44,7 @@ class ExportCsvUseCaseTest {
         createUseCase.execute(new CreateTransactionCommand(
             new BigDecimal("99.90"), LocalDate.of(2025, 1, 10),
             1, "text", TransactionType.EXPENSE, PaymentMethod.CREDIT,
-            "Supermarket", "Groceries", "12345678000195", 0.95
+            "Supermarket", "Groceries", "12345678000195", 0.95, null
         ));
 
         byte[] csv = useCase.execute(new ExportCsvQuery(START, END));
@@ -63,7 +63,7 @@ class ExportCsvUseCaseTest {
         createUseCase.execute(new CreateTransactionCommand(
             new BigDecimal("10.00"), LocalDate.of(2025, 1, 5),
             1, "text", TransactionType.EXPENSE, PaymentMethod.DEBIT,
-            "Store, Inc.", null, null, 0.9
+            "Store, Inc.", null, null, 0.9, null
         ));
 
         byte[] csv = useCase.execute(new ExportCsvQuery(START, END));

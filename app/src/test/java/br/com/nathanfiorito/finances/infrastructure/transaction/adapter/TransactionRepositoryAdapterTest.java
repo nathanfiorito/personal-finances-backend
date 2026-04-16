@@ -7,6 +7,8 @@ import br.com.nathanfiorito.finances.domain.transaction.enums.TransactionType;
 import br.com.nathanfiorito.finances.domain.transaction.records.ExtractedTransaction;
 import br.com.nathanfiorito.finances.domain.transaction.records.Transaction;
 import br.com.nathanfiorito.finances.domain.transaction.records.TransactionUpdate;
+import br.com.nathanfiorito.finances.infrastructure.card.entity.CardEntity;
+import br.com.nathanfiorito.finances.infrastructure.card.repository.JpaCardRepository;
 import br.com.nathanfiorito.finances.infrastructure.category.entity.CategoryEntity;
 import br.com.nathanfiorito.finances.infrastructure.category.repository.JpaCategoryRepository;
 import br.com.nathanfiorito.finances.infrastructure.transaction.entity.TransactionEntity;
@@ -33,13 +35,15 @@ class TransactionRepositoryAdapterTest {
 
     private StubJpaTransactionRepository transactionJpa;
     private StubJpaCategoryRepository categoryJpa;
+    private StubJpaCardRepository cardJpa;
     private TransactionRepositoryAdapter adapter;
 
     @BeforeEach
     void setUp() {
         transactionJpa = new StubJpaTransactionRepository();
         categoryJpa = new StubJpaCategoryRepository();
-        adapter = new TransactionRepositoryAdapter(transactionJpa, categoryJpa);
+        cardJpa = new StubJpaCardRepository();
+        adapter = new TransactionRepositoryAdapter(transactionJpa, categoryJpa, cardJpa);
     }
 
     // --- Helper factories ---
@@ -234,6 +238,7 @@ class TransactionRepositoryAdapterTest {
             null,
             null,
             null,
+            null,
             null
         );
 
@@ -253,7 +258,7 @@ class TransactionRepositoryAdapterTest {
         TransactionUpdate update = new TransactionUpdate(
             null, null, null, null,
             99, // non-existent categoryId
-            null, null
+            null, null, null
         );
 
         assertThatThrownBy(() -> adapter.update(id, update))
@@ -264,7 +269,7 @@ class TransactionRepositoryAdapterTest {
     @Test
     void updateShouldReturnEmptyWhenTransactionNotFound() {
         TransactionUpdate update = new TransactionUpdate(
-            new BigDecimal("99.99"), null, null, null, null, null, null
+            new BigDecimal("99.99"), null, null, null, null, null, null, null
         );
 
         Optional<Transaction> result = adapter.update(UUID.randomUUID(), update);
@@ -355,6 +360,14 @@ class TransactionRepositoryAdapterTest {
                 .toList();
             int limit = pageable.getPageSize();
             return all.size() <= limit ? all : all.subList(0, limit);
+        }
+
+        @Override
+        public List<TransactionEntity> findByCardIdAndDateBetween(int cardId, LocalDate start, LocalDate end) {
+            return store.values().stream()
+                .filter(e -> e.getCard() != null && e.getCard().getId() == cardId)
+                .filter(e -> !e.getDate().isBefore(start) && !e.getDate().isAfter(end))
+                .toList();
         }
 
         @Override
@@ -638,5 +651,123 @@ class TransactionRepositoryAdapterTest {
         public <S extends CategoryEntity, R> R findBy(org.springframework.data.domain.Example<S> example, java.util.function.Function<org.springframework.data.repository.query.FluentQuery.FetchableFluentQuery<S>, R> queryFunction) {
             return null;
         }
+    }
+
+    static class StubJpaCardRepository implements JpaCardRepository {
+        private final Map<Integer, CardEntity> store = new HashMap<>();
+
+        void store(Integer id, CardEntity entity) {
+            store.put(id, entity);
+        }
+
+        @Override
+        public Optional<CardEntity> findById(Integer id) {
+            return Optional.ofNullable(store.get(id));
+        }
+
+        @Override
+        public boolean existsById(Integer id) {
+            return store.containsKey(id);
+        }
+
+        @Override
+        public List<CardEntity> findByActiveTrue() {
+            return store.values().stream().filter(CardEntity::isActive).toList();
+        }
+
+        @Override
+        public CardEntity save(CardEntity entity) {
+            store.put(entity.getId(), entity);
+            return entity;
+        }
+
+        @Override
+        public void deleteById(Integer id) { store.remove(id); }
+
+        @Override
+        public List<CardEntity> findAll() { return store.values().stream().toList(); }
+
+        @Override
+        public long count() { return store.size(); }
+
+        @Override
+        public void flush() {}
+
+        @Override
+        public <S extends CardEntity> S saveAndFlush(S entity) { return (S) save(entity); }
+
+        @Override
+        public <S extends CardEntity> List<S> saveAllAndFlush(Iterable<S> entities) { return null; }
+
+        @Override
+        public void deleteInBatch(Iterable<CardEntity> entities) {}
+
+        @Override
+        public void deleteAllInBatch() {}
+
+        @Override
+        public void deleteAllInBatch(Iterable<CardEntity> entities) {}
+
+        @Override
+        public void deleteAllByIdInBatch(Iterable<Integer> ids) {}
+
+        @Override
+        public void deleteAll() {}
+
+        @Override
+        public void deleteAll(Iterable<? extends CardEntity> entities) {}
+
+        @Override
+        public CardEntity getOne(Integer id) { return store.get(id); }
+
+        @Override
+        public CardEntity getById(Integer id) { return store.get(id); }
+
+        @Override
+        public CardEntity getReferenceById(Integer id) { return store.get(id); }
+
+        @Override
+        public <S extends CardEntity> List<S> saveAll(Iterable<S> entities) { return null; }
+
+        @Override
+        public List<CardEntity> findAllById(Iterable<Integer> ids) { return null; }
+
+        @Override
+        public void deleteAllById(Iterable<? extends Integer> ids) {}
+
+        @Override
+        public void delete(CardEntity entity) {
+            if (entity != null && entity.getId() != null) store.remove(entity.getId());
+        }
+
+        @Override
+        public <S extends CardEntity> boolean exists(org.springframework.data.domain.Example<S> example) { return false; }
+
+        @Override
+        public <S extends CardEntity> long count(org.springframework.data.domain.Example<S> example) { return 0; }
+
+        @Override
+        public <S extends CardEntity> List<S> findAll(org.springframework.data.domain.Example<S> example) { return null; }
+
+        @Override
+        public <S extends CardEntity> List<S> findAll(org.springframework.data.domain.Example<S> example, org.springframework.data.domain.Sort sort) { return null; }
+
+        @Override
+        public <S extends CardEntity> Page<S> findAll(org.springframework.data.domain.Example<S> example, Pageable pageable) { return null; }
+
+        @Override
+        public <S extends CardEntity> Optional<S> findOne(org.springframework.data.domain.Example<S> example) { return Optional.empty(); }
+
+        @Override
+        public List<CardEntity> findAll(org.springframework.data.domain.Sort sort) { return store.values().stream().toList(); }
+
+        @Override
+        public Page<CardEntity> findAll(Pageable pageable) {
+            List<CardEntity> all = store.values().stream().toList();
+            return new PageImpl<>(all, pageable, all.size());
+        }
+
+        @Override
+        public <S extends CardEntity, R> R findBy(org.springframework.data.domain.Example<S> example, java.util.function.Function<org.springframework.data.repository.query.FluentQuery.FetchableFluentQuery<S>, R> queryFunction) { return null; }
     }
 }

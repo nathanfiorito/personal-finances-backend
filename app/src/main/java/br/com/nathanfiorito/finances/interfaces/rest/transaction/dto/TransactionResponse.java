@@ -17,6 +17,8 @@ public record TransactionResponse(
     String transactionType,
     String paymentMethod,
     Double confidence,
+    Integer cardId,
+    String cardAlias,
     String createdAt
 ) {
     public static TransactionResponse from(Transaction tx) {
@@ -33,6 +35,8 @@ public record TransactionResponse(
             tx.transactionType() != null ? tx.transactionType().name().toLowerCase() : null,
             tx.paymentMethod() != null ? tx.paymentMethod().name().toLowerCase() : null,
             tx.confidence(),
+            tx.cardId(),
+            tx.cardAlias(),
             tx.createdAt() != null ? tx.createdAt().toString() : null
         );
     }

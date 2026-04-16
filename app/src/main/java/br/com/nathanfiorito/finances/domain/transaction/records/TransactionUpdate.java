@@ -13,5 +13,6 @@ public record TransactionUpdate(
     String description,
     Integer categoryId,
     PaymentMethod paymentMethod,
-    TransactionType transactionType
+    TransactionType transactionType,
+    Integer cardId
 ) {}

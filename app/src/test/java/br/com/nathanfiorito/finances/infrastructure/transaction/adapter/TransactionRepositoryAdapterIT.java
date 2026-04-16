@@ -165,6 +165,7 @@ class TransactionRepositoryAdapterIT extends BaseRepositoryIT {
             null,
             null,
             null,
+            null,
             null
         );
 
@@ -178,7 +179,7 @@ class TransactionRepositoryAdapterIT extends BaseRepositoryIT {
     @Test
     void updateShouldReturnEmptyWhenTransactionNotFound() {
         TransactionUpdate update = new TransactionUpdate(
-            new BigDecimal("10.00"), null, null, null, null, null, null
+            new BigDecimal("10.00"), null, null, null, null, null, null, null
         );
 
         Optional<Transaction> result = adapter.update(UUID.randomUUID(), update);
@@ -190,7 +191,7 @@ class TransactionRepositoryAdapterIT extends BaseRepositoryIT {
     void updateShouldThrowCategoryNotFoundExceptionWhenCategoryIdIsInvalid() {
         Transaction saved = adapter.save(defaultExtracted(), categoryId);
         TransactionUpdate update = new TransactionUpdate(
-            null, null, null, null, Integer.MAX_VALUE, null, null
+            null, null, null, null, Integer.MAX_VALUE, null, null, null
         );
 
         assertThatThrownBy(() -> adapter.update(saved.id(), update))

@@ -29,7 +29,7 @@ class CreateTransactionUseCaseTest {
         var command = new CreateTransactionCommand(
             new BigDecimal("50.00"), LocalDate.of(2026, 1, 15),
             1, "text", TransactionType.EXPENSE, PaymentMethod.DEBIT,
-            "Test Store", null, null, 0.9
+            "Test Store", null, null, 0.9, null
         );
 
         Transaction result = useCase.execute(command);
@@ -47,7 +47,7 @@ class CreateTransactionUseCaseTest {
         var command = new CreateTransactionCommand(
             new BigDecimal("100.00"), LocalDate.now(),
             2, "image", TransactionType.EXPENSE, PaymentMethod.CREDIT,
-            "Supermarket", "Groceries", null, 0.95
+            "Supermarket", "Groceries", null, 0.95, null
         );
 
         useCase.execute(command);
@@ -60,7 +60,7 @@ class CreateTransactionUseCaseTest {
         var command = new CreateTransactionCommand(
             new BigDecimal("5000.00"), LocalDate.now(),
             3, "text", TransactionType.INCOME, PaymentMethod.CREDIT,
-            "Employer", null, null, 1.0
+            "Employer", null, null, 1.0, null
         );
 
         Transaction result = useCase.execute(command);

@@ -27,9 +27,17 @@ public record CreateTransactionRequest(
     String entryType,
     String establishment,
     String description,
-    String taxId
+    String taxId,
+    Integer cardId
 ) {
     public CreateTransactionCommand toCommand() {
+        PaymentMethod resolvedPaymentMethod = PaymentMethod.valueOf(paymentMethod.toUpperCase());
+        if (resolvedPaymentMethod == PaymentMethod.CREDIT && cardId == null) {
+            throw new IllegalArgumentException("Card ID is required for credit card transactions");
+        }
+        if (resolvedPaymentMethod != PaymentMethod.CREDIT && cardId != null) {
+            throw new IllegalArgumentException("Card ID must be null for non-credit transactions");
+        }
         return new CreateTransactionCommand(
             amount,
             date != null ? date : LocalDate.now(),
@@ -38,11 +46,12 @@ public record CreateTransactionRequest(
             transactionType != null
                 ? TransactionType.valueOf(transactionType.toUpperCase())
                 : TransactionType.EXPENSE,
-            PaymentMethod.valueOf(paymentMethod.toUpperCase()),
+            resolvedPaymentMethod,
             establishment,
             description,
             taxId,
-            1.0
+            1.0,
+            cardId
         );
     }
 }

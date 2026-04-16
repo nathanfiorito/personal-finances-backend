@@ -16,5 +16,6 @@ public record CreateTransactionCommand(
     String establishment,
     String description,
     String taxId,
-    double confidence
+    double confidence,
+    Integer cardId
 ) {}

@@ -33,7 +33,7 @@ class UpdateTransactionUseCaseTest {
             new CreateTransactionCommand(
                 new BigDecimal("50.00"), LocalDate.now(),
                 1, "text", TransactionType.EXPENSE, PaymentMethod.DEBIT,
-                "Store", null, null, 0.9
+                "Store", null, null, 0.9, null
             )
         );
     }
@@ -44,7 +44,7 @@ class UpdateTransactionUseCaseTest {
 
         Transaction result = useCase.execute(new UpdateTransactionCommand(
             saved.id(), new BigDecimal("75.00"), null,
-            "New Store", null, null, null, null
+            "New Store", null, null, null, null, null
         ));
 
         assertThat(result).isNotNull();
@@ -55,7 +55,7 @@ class UpdateTransactionUseCaseTest {
     void shouldThrowWhenTransactionNotFound() {
         assertThatThrownBy(() ->
             useCase.execute(new UpdateTransactionCommand(
-                UUID.randomUUID(), null, null, "Updated", null, null, null, null
+                UUID.randomUUID(), null, null, "Updated", null, null, null, null, null
             ))
         ).isInstanceOf(TransactionNotFoundException.class);
     }

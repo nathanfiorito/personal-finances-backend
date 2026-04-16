@@ -33,7 +33,7 @@ class ListTransactionsUseCaseTest {
             createUseCase.execute(new CreateTransactionCommand(
                 new BigDecimal("10.00"), LocalDate.now(),
                 1, "text", TransactionType.EXPENSE, PaymentMethod.DEBIT,
-                "Store " + i, null, null, 0.9
+                "Store " + i, null, null, 0.9, null
             ));
         }
     }
