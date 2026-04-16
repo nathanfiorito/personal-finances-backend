@@ -29,7 +29,8 @@ public class UpdateTransactionUseCase {
             command.description(),
             command.categoryId(),
             command.paymentMethod(),
-            command.transactionType()
+            command.transactionType(),
+            command.cardId()
         );
 
         Transaction updated = repository.update(command.id(), update)

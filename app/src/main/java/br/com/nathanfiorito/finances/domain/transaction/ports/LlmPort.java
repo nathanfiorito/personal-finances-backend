@@ -1,12 +1,17 @@
 package br.com.nathanfiorito.finances.domain.transaction.ports;
 
+import br.com.nathanfiorito.finances.domain.card.records.InvoicePrediction;
 import br.com.nathanfiorito.finances.domain.transaction.records.ExtractedTransaction;
 import br.com.nathanfiorito.finances.domain.transaction.records.Transaction;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface LlmPort {
     ExtractedTransaction extractTransaction(String content, String entryType);
     boolean isDuplicate(ExtractedTransaction extracted, List<Transaction> recentTransactions);
     String categorize(ExtractedTransaction extracted, List<String> categoryNames);
+    InvoicePrediction generateInvoicePrediction(int cardId, BigDecimal currentTotal,
+        int transactionCount, int daysElapsed, int daysRemaining,
+        List<BigDecimal> historicalTotals);
 }

@@ -1,5 +1,15 @@
 package br.com.nathanfiorito.finances.infrastructure.config;
 
+import br.com.nathanfiorito.finances.application.card.usecases.CreateCardUseCase;
+import br.com.nathanfiorito.finances.application.card.usecases.DeactivateCardUseCase;
+import br.com.nathanfiorito.finances.application.card.usecases.GetCardUseCase;
+import br.com.nathanfiorito.finances.application.card.usecases.GetCurrentInvoiceUseCase;
+import br.com.nathanfiorito.finances.application.card.usecases.GetInvoiceByMonthUseCase;
+import br.com.nathanfiorito.finances.application.card.usecases.GetInvoicePredictionUseCase;
+import br.com.nathanfiorito.finances.application.card.usecases.GetInvoiceTimelineUseCase;
+import br.com.nathanfiorito.finances.application.card.usecases.ListCardsUseCase;
+import br.com.nathanfiorito.finances.application.card.usecases.RefreshInvoicePredictionUseCase;
+import br.com.nathanfiorito.finances.application.card.usecases.UpdateCardUseCase;
 import br.com.nathanfiorito.finances.application.category.usecases.CreateCategoryUseCase;
 import br.com.nathanfiorito.finances.application.category.usecases.DeactivateCategoryUseCase;
 import br.com.nathanfiorito.finances.application.category.usecases.ListCategoriesUseCase;
@@ -16,6 +26,8 @@ import br.com.nathanfiorito.finances.application.transaction.usecases.GetSummary
 import br.com.nathanfiorito.finances.application.transaction.usecases.GetTransactionUseCase;
 import br.com.nathanfiorito.finances.application.transaction.usecases.ListTransactionsUseCase;
 import br.com.nathanfiorito.finances.application.transaction.usecases.UpdateTransactionUseCase;
+import br.com.nathanfiorito.finances.domain.card.ports.CardRepository;
+import br.com.nathanfiorito.finances.domain.card.ports.InvoicePredictionRepository;
 import br.com.nathanfiorito.finances.domain.category.ports.CategoryRepository;
 import br.com.nathanfiorito.finances.domain.telegram.ports.NotifierPort;
 import br.com.nathanfiorito.finances.domain.telegram.ports.PendingStatePort;
@@ -31,6 +43,8 @@ public class UseCaseConfig {
 
     private final TransactionRepository transactionRepository;
     private final CategoryRepository categoryRepository;
+    private final CardRepository cardRepository;
+    private final InvoicePredictionRepository invoicePredictionRepository;
     private final LlmPort llmPort;
     private final NotifierPort notifierPort;
     private final PendingStatePort pendingStatePort;
@@ -93,6 +107,64 @@ public class UseCaseConfig {
     @Bean
     public DeactivateCategoryUseCase deactivateCategoryUseCase() {
         return new DeactivateCategoryUseCase(categoryRepository);
+    }
+
+    // -------------------------------------------------------------------------
+    // Card use cases
+    // -------------------------------------------------------------------------
+
+    @Bean
+    public CreateCardUseCase createCardUseCase() {
+        return new CreateCardUseCase(cardRepository);
+    }
+
+    @Bean
+    public ListCardsUseCase listCardsUseCase() {
+        return new ListCardsUseCase(cardRepository);
+    }
+
+    @Bean
+    public GetCardUseCase getCardUseCase() {
+        return new GetCardUseCase(cardRepository);
+    }
+
+    @Bean
+    public UpdateCardUseCase updateCardUseCase() {
+        return new UpdateCardUseCase(cardRepository);
+    }
+
+    @Bean
+    public DeactivateCardUseCase deactivateCardUseCase() {
+        return new DeactivateCardUseCase(cardRepository);
+    }
+
+    // -------------------------------------------------------------------------
+    // Invoice use cases
+    // -------------------------------------------------------------------------
+
+    @Bean
+    public GetCurrentInvoiceUseCase getCurrentInvoiceUseCase() {
+        return new GetCurrentInvoiceUseCase(cardRepository, transactionRepository);
+    }
+
+    @Bean
+    public GetInvoiceByMonthUseCase getInvoiceByMonthUseCase() {
+        return new GetInvoiceByMonthUseCase(cardRepository, transactionRepository);
+    }
+
+    @Bean
+    public GetInvoiceTimelineUseCase getInvoiceTimelineUseCase() {
+        return new GetInvoiceTimelineUseCase(cardRepository, transactionRepository);
+    }
+
+    @Bean
+    public GetInvoicePredictionUseCase getInvoicePredictionUseCase() {
+        return new GetInvoicePredictionUseCase(cardRepository, transactionRepository, invoicePredictionRepository, llmPort);
+    }
+
+    @Bean
+    public RefreshInvoicePredictionUseCase refreshInvoicePredictionUseCase() {
+        return new RefreshInvoicePredictionUseCase(cardRepository, transactionRepository, invoicePredictionRepository, llmPort);
     }
 
     // -------------------------------------------------------------------------

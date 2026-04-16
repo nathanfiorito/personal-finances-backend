@@ -31,7 +31,7 @@ class GetMonthlyUseCaseTest {
     private void create(BigDecimal amount, int categoryId, LocalDate date) {
         createUseCase.execute(new CreateTransactionCommand(
             amount, date, categoryId, "text", TransactionType.EXPENSE, PaymentMethod.DEBIT,
-            "Store", null, null, 0.9
+            "Store", null, null, 0.9, null
         ));
     }
 

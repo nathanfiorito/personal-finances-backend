@@ -1,5 +1,6 @@
 package br.com.nathanfiorito.finances.interfaces.rest.shared;
 
+import br.com.nathanfiorito.finances.domain.card.exceptions.CardNotFoundException;
 import br.com.nathanfiorito.finances.domain.category.exceptions.CategoryNotFoundException;
 import br.com.nathanfiorito.finances.domain.transaction.exceptions.TransactionNotFoundException;
 import jakarta.validation.ConstraintViolationException;
@@ -97,6 +98,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(TransactionNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleTransactionNotFound(TransactionNotFoundException ex) {
         log.warn("Transaction not found: {}", ex.getMessage());
+        return respond(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(CardNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCardNotFound(CardNotFoundException ex) {
+        log.warn("Card not found: {}", ex.getMessage());
         return respond(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 

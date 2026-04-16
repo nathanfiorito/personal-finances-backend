@@ -1,5 +1,6 @@
 package br.com.nathanfiorito.finances.infrastructure.llm.adapter;
 
+import br.com.nathanfiorito.finances.domain.card.records.InvoicePrediction;
 import br.com.nathanfiorito.finances.domain.transaction.enums.PaymentMethod;
 import br.com.nathanfiorito.finances.domain.transaction.enums.TransactionType;
 import br.com.nathanfiorito.finances.domain.transaction.exceptions.LlmExtractionException;
@@ -129,6 +130,36 @@ public class OpenRouterLlmAdapter implements LlmPort {
             span.setStatus(StatusCode.ERROR, e.getMessage());
             span.recordException(e);
             return false;
+        } finally {
+            span.end();
+        }
+    }
+
+    @Override
+    public InvoicePrediction generateInvoicePrediction(int cardId, BigDecimal currentTotal,
+            int transactionCount, int daysElapsed, int daysRemaining,
+            List<BigDecimal> historicalTotals) {
+        Span span = tracer.spanBuilder("llm.openrouter/predict")
+            .setAttribute("llm.model", HAIKU)
+            .setAttribute("llm.operation", "predict")
+            .startSpan();
+        try (Scope scope = span.makeCurrent()) {
+            StructuredChatCompletionCreateParams<LlmPredictionResponse> params =
+                ChatCompletionCreateParams.builder()
+                    .model(HAIKU)
+                    .addUserMessage(buildPredictionPrompt(currentTotal, transactionCount,
+                        daysElapsed, daysRemaining, historicalTotals))
+                    .responseFormat(LlmPredictionResponse.class, JsonSchemaLocalValidation.NO)
+                    .build();
+            LlmCallResult<LlmPredictionResponse> result = callLlm(params);
+            span.setAttribute("llm.input.tokens", result.inputTokens());
+            span.setAttribute("llm.output.tokens", result.outputTokens());
+            span.setAttribute("llm.finish_reason", result.finishReason());
+            return mapToPrediction(cardId, currentTotal, daysRemaining, historicalTotals, result.content());
+        } catch (Exception e) {
+            span.setStatus(StatusCode.ERROR, e.getMessage());
+            span.recordException(e);
+            throw new LlmExtractionException("Failed to generate invoice prediction: " + e.getMessage(), e);
         } finally {
             span.end();
         }
@@ -283,5 +314,59 @@ public class OpenRouterLlmAdapter implements LlmPort {
             throw new LlmExtractionException(
                 "Failed to serialize transactions for duplicate check", e);
         }
+    }
+
+    private String buildPredictionPrompt(BigDecimal currentTotal, int transactionCount,
+                                         int daysElapsed, int daysRemaining,
+                                         List<BigDecimal> historicalTotals) {
+        String historicalStr = historicalTotals.stream()
+            .map(BigDecimal::toPlainString)
+            .reduce((a, b) -> a + ", " + b)
+            .orElse("none");
+        return """
+            You are a financial assistant. Predict the final invoice total for a credit card.
+
+            Current invoice status:
+            - Current total: R$ %s
+            - Transactions so far: %d
+            - Days elapsed in period: %d
+            - Days remaining in period: %d
+
+            Historical invoice totals (most recent first): [%s]
+
+            Based on spending patterns and historical data, predict:
+            1. The final total when the invoice closes
+            2. Your confidence level (low, medium, high)
+            3. The projected remaining spend
+
+            Return a JSON object with these exact fields:
+            - predicted_total: predicted final total as a decimal string (e.g. "1500.00")
+            - confidence: "low", "medium", or "high"
+            - projected_remaining: predicted remaining spend as a decimal string
+            - based_on_invoices: number of historical invoices used for prediction
+            """.formatted(currentTotal.toPlainString(), transactionCount,
+                daysElapsed, daysRemaining, historicalStr);
+    }
+
+    private InvoicePrediction mapToPrediction(int cardId, BigDecimal currentTotal,
+                                              int daysRemaining, List<BigDecimal> historicalTotals,
+                                              LlmPredictionResponse response) {
+        BigDecimal predictedTotal = new BigDecimal(response.predictedTotal);
+        BigDecimal projectedRemaining = new BigDecimal(response.projectedRemaining);
+        String confidence = response.confidence != null ? response.confidence : "low";
+        int basedOnInvoices = response.basedOnInvoices;
+
+        BigDecimal dailyAverage = BigDecimal.ZERO;
+        if (!historicalTotals.isEmpty()) {
+            BigDecimal sum = historicalTotals.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+            dailyAverage = sum.divide(BigDecimal.valueOf(historicalTotals.size() * 30L), 2,
+                java.math.RoundingMode.HALF_UP);
+        }
+
+        return new InvoicePrediction(
+            cardId, predictedTotal, currentTotal, daysRemaining,
+            dailyAverage, java.time.LocalDateTime.now(), confidence,
+            projectedRemaining, basedOnInvoices
+        );
     }
 }

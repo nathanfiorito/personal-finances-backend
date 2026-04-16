@@ -20,6 +20,11 @@ public class StubTransactionRepository implements TransactionRepository {
 
     @Override
     public Transaction save(ExtractedTransaction extracted, int categoryId) {
+        return save(extracted, categoryId, null);
+    }
+
+    @Override
+    public Transaction save(ExtractedTransaction extracted, int categoryId, Integer cardId) {
         Transaction saved = new Transaction(
             UUID.randomUUID(),
             extracted.amount(),
@@ -33,10 +38,20 @@ public class StubTransactionRepository implements TransactionRepository {
             extracted.transactionType(),
             extracted.paymentMethod(),
             extracted.confidence(),
+            cardId,
+            cardId != null ? "Card " + cardId : null,
             LocalDateTime.now()
         );
         transactions.add(saved);
         return saved;
+    }
+
+    @Override
+    public List<Transaction> listByCardAndPeriod(int cardId, LocalDate start, LocalDate end) {
+        return transactions.stream()
+            .filter(t -> t.cardId() != null && t.cardId() == cardId)
+            .filter(t -> !t.date().isBefore(start) && !t.date().isAfter(end))
+            .toList();
     }
 
     @Override

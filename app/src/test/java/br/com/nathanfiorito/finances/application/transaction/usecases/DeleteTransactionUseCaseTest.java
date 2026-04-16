@@ -33,7 +33,7 @@ class DeleteTransactionUseCaseTest {
             new CreateTransactionCommand(
                 new BigDecimal("50.00"), LocalDate.now(),
                 1, "text", TransactionType.EXPENSE, PaymentMethod.DEBIT,
-                "Store", null, null, 0.9
+                "Store", null, null, 0.9, null
             )
         );
     }

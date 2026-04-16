@@ -35,7 +35,7 @@ class GetSummaryUseCaseTest {
     private void create(BigDecimal amount, int categoryId, TransactionType type, LocalDate date) {
         createUseCase.execute(new CreateTransactionCommand(
             amount, date, categoryId, "text", type, PaymentMethod.DEBIT,
-            "Store", null, null, 0.9
+            "Store", null, null, 0.9, null
         ));
     }
 

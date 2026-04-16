@@ -1,5 +1,6 @@
 package br.com.nathanfiorito.finances.infrastructure.transaction.adapter;
 
+import br.com.nathanfiorito.finances.domain.card.exceptions.CardNotFoundException;
 import br.com.nathanfiorito.finances.domain.category.exceptions.CategoryNotFoundException;
 import br.com.nathanfiorito.finances.domain.shared.PageResult;
 import br.com.nathanfiorito.finances.domain.transaction.enums.TransactionType;
@@ -7,6 +8,8 @@ import br.com.nathanfiorito.finances.domain.transaction.ports.TransactionReposit
 import br.com.nathanfiorito.finances.domain.transaction.records.ExtractedTransaction;
 import br.com.nathanfiorito.finances.domain.transaction.records.Transaction;
 import br.com.nathanfiorito.finances.domain.transaction.records.TransactionUpdate;
+import br.com.nathanfiorito.finances.infrastructure.card.entity.CardEntity;
+import br.com.nathanfiorito.finances.infrastructure.card.repository.JpaCardRepository;
 import br.com.nathanfiorito.finances.infrastructure.category.entity.CategoryEntity;
 import br.com.nathanfiorito.finances.infrastructure.category.repository.JpaCategoryRepository;
 import br.com.nathanfiorito.finances.infrastructure.transaction.entity.TransactionEntity;
@@ -28,13 +31,30 @@ public class TransactionRepositoryAdapter implements TransactionRepository {
 
     private final JpaTransactionRepository jpa;
     private final JpaCategoryRepository categoryJpa;
+    private final JpaCardRepository cardJpa;
 
     @Override
     public Transaction save(ExtractedTransaction extracted, int categoryId) {
+        return save(extracted, categoryId, null);
+    }
+
+    @Override
+    public Transaction save(ExtractedTransaction extracted, int categoryId, Integer cardId) {
         CategoryEntity category = categoryJpa.findById(categoryId)
             .orElseThrow(() -> new CategoryNotFoundException(categoryId));
         TransactionEntity entity = TransactionMapper.toEntity(extracted, category);
+        if (cardId != null) {
+            CardEntity card = cardJpa.findById(cardId)
+                .orElseThrow(() -> new CardNotFoundException(cardId));
+            entity.setCard(card);
+        }
         return TransactionMapper.toDomain(jpa.save(entity));
+    }
+
+    @Override
+    public List<Transaction> listByCardAndPeriod(int cardId, LocalDate start, LocalDate end) {
+        return jpa.findByCardIdAndDateBetween(cardId, start, end)
+            .stream().map(TransactionMapper::toDomain).toList();
     }
 
     @Override
@@ -78,6 +98,14 @@ public class TransactionRepositoryAdapter implements TransactionRepository {
                 CategoryEntity cat = categoryJpa.findById(data.categoryId())
                     .orElseThrow(() -> new CategoryNotFoundException(data.categoryId()));
                 entity.setCategory(cat);
+            }
+            if (data.cardId() != null) {
+                CardEntity card = cardJpa.findById(data.cardId())
+                    .orElseThrow(() -> new CardNotFoundException(data.cardId()));
+                entity.setCard(card);
+            } else if (data.paymentMethod() != null &&
+                       data.paymentMethod() != br.com.nathanfiorito.finances.domain.transaction.enums.PaymentMethod.CREDIT) {
+                entity.setCard(null);
             }
             return TransactionMapper.toDomain(jpa.save(entity));
         });

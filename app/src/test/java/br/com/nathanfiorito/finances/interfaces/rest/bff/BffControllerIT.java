@@ -45,6 +45,8 @@ class BffControllerIT extends BaseControllerIT {
             TransactionType.EXPENSE,
             PaymentMethod.DEBIT,
             1.0,
+            null,
+            null,
             LocalDateTime.of(2024, 6, 10, 9, 0)
         );
         Category cat = new Category(2, "Alimentação", true);

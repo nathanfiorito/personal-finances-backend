@@ -15,20 +15,23 @@ import java.util.UUID;
 public interface JpaTransactionRepository extends JpaRepository<TransactionEntity, UUID> {
 
     @Override
-    @EntityGraph(attributePaths = {"category"})
+    @EntityGraph(attributePaths = {"category", "card"})
     Page<TransactionEntity> findAll(Pageable pageable);
 
     @Override
-    @EntityGraph(attributePaths = {"category"})
+    @EntityGraph(attributePaths = {"category", "card"})
     Optional<TransactionEntity> findById(UUID id);
 
-    @EntityGraph(attributePaths = {"category"})
+    @EntityGraph(attributePaths = {"category", "card"})
     List<TransactionEntity> findByDateBetweenAndTransactionType(
         LocalDate start, LocalDate end, TransactionType transactionType);
 
-    @EntityGraph(attributePaths = {"category"})
+    @EntityGraph(attributePaths = {"category", "card"})
     List<TransactionEntity> findByDateBetween(LocalDate start, LocalDate end);
 
-    @EntityGraph(attributePaths = {"category"})
+    @EntityGraph(attributePaths = {"category", "card"})
     List<TransactionEntity> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    @EntityGraph(attributePaths = {"category", "card"})
+    List<TransactionEntity> findByCardIdAndDateBetween(int cardId, LocalDate start, LocalDate end);
 }

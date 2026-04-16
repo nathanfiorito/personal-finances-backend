@@ -55,6 +55,8 @@ class TransactionControllerIT extends BaseControllerIT {
             TransactionType.EXPENSE,
             PaymentMethod.CREDIT,
             0.95,
+            null,
+            null,
             LocalDateTime.of(2024, 6, 15, 10, 0)
         );
     }
@@ -111,7 +113,7 @@ class TransactionControllerIT extends BaseControllerIT {
                         {
                           "amount": 50.00,
                           "category_id": 1,
-                          "payment_method": "CREDIT"
+                          "payment_method": "DEBIT"
                         }
                         """))
             .andExpect(status().isCreated())
@@ -132,7 +134,7 @@ class TransactionControllerIT extends BaseControllerIT {
         mockMvc.perform(post("/api/v1/transactions")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"amount": 50.00, "category_id": 1, "payment_method": "CREDIT"}
+                        {"amount": 50.00, "category_id": 1, "payment_method": "DEBIT"}
                         """))
             .andExpect(status().isUnauthorized());
     }
