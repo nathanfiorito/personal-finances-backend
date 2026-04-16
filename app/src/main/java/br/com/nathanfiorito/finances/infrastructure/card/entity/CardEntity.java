@@ -27,10 +27,10 @@ public class CardEntity {
     @Column(name = "last_four_digits", nullable = false, length = 4)
     private String lastFourDigits;
 
-    @Column(name = "closing_day", nullable = false)
+    @Column(name = "closing_day", nullable = false, columnDefinition = "smallint")
     private int closingDay;
 
-    @Column(name = "due_day", nullable = false)
+    @Column(name = "due_day", nullable = false, columnDefinition = "smallint")
     private int dueDay;
 
     @Column(nullable = false)
