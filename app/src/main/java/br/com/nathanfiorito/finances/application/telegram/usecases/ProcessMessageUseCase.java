@@ -12,10 +12,12 @@ import br.com.nathanfiorito.finances.domain.transaction.enums.TransactionType;
 import br.com.nathanfiorito.finances.domain.transaction.ports.LlmPort;
 import br.com.nathanfiorito.finances.domain.transaction.records.ExtractedTransaction;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+@Slf4j
 @RequiredArgsConstructor
 public class ProcessMessageUseCase {
 
@@ -27,11 +29,15 @@ public class ProcessMessageUseCase {
     private final NotifierPort notifier;
 
     public void execute(ProcessMessageCommand cmd) {
+        log.info("Processing message: chatId={}, entryType={}", cmd.chatId(), cmd.entryType());
         ExtractedTransaction extracted = llm.extractTransaction(cmd.content(), cmd.entryType());
+        log.debug("LLM extraction result: amount={}, establishment={}, date={}, confidence={}",
+            extracted.amount(), extracted.establishment(), extracted.date(), extracted.confidence());
 
         List<Category> categories = categoryRepository.listAll();
         List<String> categoryNames = categories.stream().map(Category::name).toList();
         String categoryName = llm.categorize(extracted, categoryNames);
+        log.debug("LLM categorization result: category={}", categoryName);
         int categoryId = categories.stream()
             .filter(c -> c.name().equals(categoryName))
             .findFirst()
@@ -42,6 +48,7 @@ public class ProcessMessageUseCase {
             extracted, categoryName, categoryId, cmd.chatId(), cmd.messageId()
         );
         pendingState.set(cmd.chatId(), state);
+        log.info("Pending transaction stored: chatId={}, amount={}, category={}", cmd.chatId(), extracted.amount(), categoryName);
 
         notifier.sendMessage(
             cmd.chatId(),

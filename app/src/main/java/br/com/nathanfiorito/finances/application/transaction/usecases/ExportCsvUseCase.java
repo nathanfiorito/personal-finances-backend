@@ -4,11 +4,13 @@ import br.com.nathanfiorito.finances.application.transaction.queries.ExportCsvQu
 import br.com.nathanfiorito.finances.domain.transaction.ports.TransactionRepository;
 import br.com.nathanfiorito.finances.domain.transaction.records.Transaction;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @RequiredArgsConstructor
 public class ExportCsvUseCase {
 
@@ -18,6 +20,7 @@ public class ExportCsvUseCase {
     private final TransactionRepository repository;
 
     public byte[] execute(ExportCsvQuery query) {
+        log.info("Exporting CSV: start={}, end={}", query.start(), query.end());
         List<Transaction> transactions = repository.listByPeriod(query.start(), query.end(), Optional.empty());
 
         StringBuilder csv = new StringBuilder(BOM).append(HEADER);
@@ -32,6 +35,7 @@ public class ExportCsvUseCase {
                .append(tx.transactionType() != null ? tx.transactionType().name().toLowerCase() : "")
                .append('\n');
         }
+        log.info("CSV exported: transactionCount={}, start={}, end={}", transactions.size(), query.start(), query.end());
         return csv.toString().getBytes(StandardCharsets.UTF_8);
     }
 

@@ -12,6 +12,7 @@ import br.com.nathanfiorito.finances.interfaces.rest.category.dto.CategoryRespon
 import br.com.nathanfiorito.finances.interfaces.rest.shared.PageResponse;
 import br.com.nathanfiorito.finances.interfaces.rest.transaction.dto.TransactionResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("${app.api.base-path}/bff")
 @RequiredArgsConstructor
@@ -33,12 +35,14 @@ public class BffController {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(name = "page_size", defaultValue = "20") int pageSize
     ) {
+        log.debug("GET /bff/transactions: page={}, pageSize={}", page, pageSize);
         PageResult<Transaction> txResult = listTransactions.execute(new ListTransactionsQuery(page, pageSize));
         PageResult<Category> catResult = listCategories.execute(new ListCategoriesQuery(0, 100, true));
 
         PageResponse<TransactionResponse> txPage = PageResponse.from(txResult, TransactionResponse::from, page, pageSize);
         List<CategoryResponse> categories = catResult.items().stream().map(CategoryResponse::from).toList();
 
+        log.debug("GET /bff/transactions: transactions={}, categories={}", txResult.total(), categories.size());
         return ResponseEntity.ok(new BffTransactionsResponse(txPage, categories));
     }
 }

@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -13,6 +14,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -35,6 +37,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             UsernamePasswordAuthenticationToken auth =
                 new UsernamePasswordAuthenticationToken(subject, null, List.of());
             SecurityContextHolder.getContext().setAuthentication(auth);
+            log.debug("JWT authenticated: subject={}, path={}", subject, request.getServletPath());
+        } else {
+            log.warn("Invalid JWT token: path={}", request.getServletPath());
         }
 
         chain.doFilter(request, response);
