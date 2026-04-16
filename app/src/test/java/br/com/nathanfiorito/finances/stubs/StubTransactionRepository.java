@@ -38,8 +38,8 @@ public class StubTransactionRepository implements TransactionRepository {
             extracted.transactionType(),
             extracted.paymentMethod(),
             extracted.confidence(),
-            null,
-            null,
+            cardId,
+            cardId != null ? "Card " + cardId : null,
             LocalDateTime.now()
         );
         transactions.add(saved);
