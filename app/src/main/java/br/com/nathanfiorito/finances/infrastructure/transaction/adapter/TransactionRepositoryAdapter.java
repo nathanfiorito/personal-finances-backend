@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -27,6 +28,7 @@ import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class TransactionRepositoryAdapter implements TransactionRepository {
 
     private final JpaTransactionRepository jpa;
@@ -34,11 +36,13 @@ public class TransactionRepositoryAdapter implements TransactionRepository {
     private final JpaCardRepository cardJpa;
 
     @Override
+    @Transactional
     public Transaction save(ExtractedTransaction extracted, int categoryId) {
         return save(extracted, categoryId, null);
     }
 
     @Override
+    @Transactional
     public Transaction save(ExtractedTransaction extracted, int categoryId, Integer cardId) {
         CategoryEntity category = categoryJpa.findById(categoryId)
             .orElseThrow(() -> new CategoryNotFoundException(categoryId));
@@ -86,6 +90,7 @@ public class TransactionRepositoryAdapter implements TransactionRepository {
     }
 
     @Override
+    @Transactional
     public Optional<Transaction> update(UUID id, TransactionUpdate data) {
         return jpa.findById(id).map(entity -> {
             if (data.amount() != null)          entity.setAmount(data.amount());
@@ -112,6 +117,7 @@ public class TransactionRepositoryAdapter implements TransactionRepository {
     }
 
     @Override
+    @Transactional
     public boolean delete(UUID id) {
         if (!jpa.existsById(id)) return false;
         jpa.deleteById(id);

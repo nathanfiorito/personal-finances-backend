@@ -7,17 +7,20 @@ import br.com.nathanfiorito.finances.infrastructure.card.mapper.CardMapper;
 import br.com.nathanfiorito.finances.infrastructure.card.repository.JpaCardRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class CardRepositoryAdapter implements CardRepository {
 
     private final JpaCardRepository jpa;
 
     @Override
+    @Transactional
     public Card save(String alias, String bank, String lastFourDigits, int closingDay, int dueDay) {
         CardEntity entity = new CardEntity();
         entity.setAlias(alias);
@@ -40,6 +43,7 @@ public class CardRepositoryAdapter implements CardRepository {
     }
 
     @Override
+    @Transactional
     public Optional<Card> update(int id, String alias, String bank, String lastFourDigits, int closingDay, int dueDay) {
         return jpa.findById(id).map(entity -> {
             entity.setAlias(alias);
@@ -52,6 +56,7 @@ public class CardRepositoryAdapter implements CardRepository {
     }
 
     @Override
+    @Transactional
     public boolean deactivate(int id) {
         return jpa.findById(id).map(entity -> {
             entity.setActive(false);

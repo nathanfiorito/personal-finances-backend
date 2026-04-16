@@ -10,17 +10,20 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class CategoryRepositoryAdapter implements CategoryRepository {
 
     private final JpaCategoryRepository jpa;
 
     @Override
+    @Transactional
     public Category save(String name) {
         CategoryEntity entity = new CategoryEntity();
         entity.setName(name);
@@ -51,6 +54,7 @@ public class CategoryRepositoryAdapter implements CategoryRepository {
     }
 
     @Override
+    @Transactional
     public Optional<Category> update(int id, String name) {
         return jpa.findById(id).map(entity -> {
             entity.setName(name);
@@ -59,6 +63,7 @@ public class CategoryRepositoryAdapter implements CategoryRepository {
     }
 
     @Override
+    @Transactional
     public boolean deactivate(int id) {
         return jpa.findById(id).map(entity -> {
             entity.setActive(false);
