@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -27,10 +29,12 @@ public class CardEntity {
     @Column(name = "last_four_digits", nullable = false, length = 4)
     private String lastFourDigits;
 
-    @Column(name = "closing_day", nullable = false, columnDefinition = "smallint")
+    @Column(name = "closing_day", nullable = false)
+    @JdbcTypeCode(SqlTypes.SMALLINT)
     private int closingDay;
 
-    @Column(name = "due_day", nullable = false, columnDefinition = "smallint")
+    @Column(name = "due_day", nullable = false)
+    @JdbcTypeCode(SqlTypes.SMALLINT)
     private int dueDay;
 
     @Column(nullable = false)
