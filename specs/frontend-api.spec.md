@@ -102,6 +102,74 @@ Expor uma API REST para o frontend consumir dados do Personal Finances. Todas as
 - [ ] `GET /api/export/csv` retorna arquivo CSV com header correto e dados do período
 - [ ] `GET /api/export/csv` sem `start`/`end` retorna 422
 
+### Invoice Import
+
+- **POST /api/v1/invoices/import/preview**
+  - Auth: `Authorization: Bearer <jwt>`
+  - Entrada: `multipart/form-data`, campo `file` (PDF, ≤ 10 MB)
+  - Saída: preview JSON (veja shape abaixo) — nenhum dado é persistido
+  - Erros: `400` (não é PDF / tamanho excede 10 MB / PDF sem texto extraível), `422` (resposta do LLM inválida), `500` (falha de infra)
+
+  ```json
+  {
+    "source_file_name": "Fatura_Itau_20260416.pdf",
+    "detected_card": {
+      "last_four_digits": "7981",
+      "matched_card_id": 2,
+      "matched_card_alias": "Itaú Uniclass Black",
+      "matched_card_bank": "Itaú"
+    },
+    "items": [
+      {
+        "temp_id": "a1b2c3d4",
+        "date": "2025-12-28",
+        "establishment": "Google YouTube MemberSA",
+        "description": null,
+        "amount": 1.99,
+        "transaction_type": "EXPENSE",
+        "payment_method": "CREDIT",
+        "suggested_category_id": 7,
+        "suggested_category_name": "Serviços",
+        "issuer_hint": "serviços",
+        "is_international": false,
+        "original_currency": null,
+        "original_amount": null,
+        "is_possible_duplicate": false,
+        "duplicate_of_transaction_id": null,
+        "confidence": 0.95
+      }
+    ]
+  }
+  ```
+
+  `detected_card` semantics: se `last_four_digits` extraídos e coincidem com um cartão ativo → todos os campos populados. Se extraídos mas sem correspondência → `matched_card_id=null`, alias/bank null. Se não extraídos → `last_four_digits=null` e demais campos null. Nas duas últimas situações o frontend exibe um card picker obrigatório antes de habilitar o botão Importar.
+
+- **POST /api/v1/invoices/import**
+  - Auth: `Authorization: Bearer <jwt>`
+  - Entrada: `application/json`
+
+  ```json
+  {
+    "card_id": 2,
+    "items": [
+      {
+        "date": "2025-12-28",
+        "establishment": "Google YouTube MemberSA",
+        "description": null,
+        "amount": 1.99,
+        "transaction_type": "EXPENSE",
+        "payment_method": "CREDIT",
+        "category_id": 7
+      }
+    ]
+  }
+  ```
+
+  `card_id` de nível superior aplica-se a todos os itens do lote. `temp_id` não é enviado. `confidence` não é persistido (armazenado como `null`). Todas as linhas são inseridas em uma única transação de banco de dados com `entry_type='invoice'`.
+
+  - Saída: `{ "imported_count": 52, "card_id": 2, "transaction_ids": ["uuid1", "uuid2", "..."] }`
+  - Erros: `400` (validação: `card_id` ausente, data inválida, `amount` ≤ 0, `items` vazio), `422` (`card_id` ou qualquer `category_id` não encontrado/inativo — rollback completo do lote), `500` (falha de infra)
+
 ## Restrições técnicas
 
 - Python 3.12+ / FastAPI
