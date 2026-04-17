@@ -110,6 +110,35 @@ class OpenRouterInvoiceExtractorAdapterTest {
             .hasMessageContaining("Failed to parse invoice line");
     }
 
+    @Test
+    void wrapsNonInvoiceImportExceptionFromCallLlm() {
+        OpenRouterInvoiceExtractorAdapter adapter = new OpenRouterInvoiceExtractorAdapter(client, tracer) {
+            @Override
+            <T> LlmCallResult<T> callLlm(StructuredChatCompletionCreateParams<T> params) {
+                throw new RuntimeException("network timeout");
+            }
+        };
+
+        assertThatThrownBy(() -> adapter.extract("text", List.of()))
+            .isInstanceOf(InvoiceImportException.class)
+            .hasMessageContaining("Failed to extract invoice via LLM")
+            .hasMessageContaining("network timeout");
+    }
+
+    @Test
+    void buildPromptIncludesCategoriesAndInvoiceText() {
+        OpenRouterInvoiceExtractorAdapter adapter = new OpenRouterInvoiceExtractorAdapter(client, tracer);
+        String prompt = adapter.buildPrompt("INVOICE_BODY_MARKER", List.of(
+            new Category(7, "Serviços", true),
+            new Category(3, "Saúde", true)
+        ));
+        assertThat(prompt).contains("INVOICE_BODY_MARKER");
+        assertThat(prompt).contains("Serviços");
+        assertThat(prompt).contains("Saúde");
+        assertThat(prompt).contains("card_last_four_digits");
+        assertThat(prompt).contains("YYYY-MM-DD");
+    }
+
     private OpenRouterInvoiceExtractorAdapter adapterReturning(LlmInvoiceExtractionResponse payload) {
         return new OpenRouterInvoiceExtractorAdapter(client, tracer) {
             @Override

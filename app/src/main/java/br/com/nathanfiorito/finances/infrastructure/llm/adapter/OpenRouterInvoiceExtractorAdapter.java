@@ -76,7 +76,8 @@ public class OpenRouterInvoiceExtractorAdapter implements InvoiceExtractorPort {
         return new LlmCallResult<>(content, inputTokens, outputTokens, finishReason);
     }
 
-    private String buildPrompt(String invoiceText, List<Category> categories) {
+    /** Package-private — called directly in unit tests to verify prompt content. */
+    String buildPrompt(String invoiceText, List<Category> categories) {
         StringBuilder categoryList = new StringBuilder();
         for (Category c : categories) {
             categoryList.append("- id=").append(c.id()).append(" name=\"").append(c.name()).append("\"\n");
