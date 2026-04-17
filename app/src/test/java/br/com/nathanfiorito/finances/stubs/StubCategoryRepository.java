@@ -21,8 +21,17 @@ public class StubCategoryRepository implements CategoryRepository {
         return category;
     }
 
+    public void seed(Category category) {
+        categories.add(category);
+    }
+
     @Override
     public List<Category> listAll() {
+        return categories.stream().filter(Category::active).toList();
+    }
+
+    @Override
+    public List<Category> listActive() {
         return categories.stream().filter(Category::active).toList();
     }
 
