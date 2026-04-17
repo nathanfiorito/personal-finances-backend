@@ -37,6 +37,11 @@ public class CategoryRepositoryAdapter implements CategoryRepository {
     }
 
     @Override
+    public List<Category> listActive() {
+        return jpa.findByActiveTrue().stream().map(CategoryMapper::toDomain).toList();
+    }
+
+    @Override
     public Optional<Category> findById(int id) {
         return jpa.findById(id).map(CategoryMapper::toDomain);
     }
