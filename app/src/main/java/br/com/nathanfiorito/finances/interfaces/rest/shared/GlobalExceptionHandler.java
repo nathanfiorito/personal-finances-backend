@@ -2,6 +2,7 @@ package br.com.nathanfiorito.finances.interfaces.rest.shared;
 
 import br.com.nathanfiorito.finances.domain.card.exceptions.CardNotFoundException;
 import br.com.nathanfiorito.finances.domain.category.exceptions.CategoryNotFoundException;
+import br.com.nathanfiorito.finances.domain.invoice.exceptions.InvoiceImportException;
 import br.com.nathanfiorito.finances.domain.transaction.exceptions.TransactionNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -82,6 +83,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
         log.warn("Bad request: {}", ex.getMessage());
+        return respond(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvoiceImportException.class)
+    public ResponseEntity<ErrorResponse> handleInvoiceImport(InvoiceImportException ex) {
+        log.warn("Invoice import error: {}", ex.getMessage());
         return respond(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 

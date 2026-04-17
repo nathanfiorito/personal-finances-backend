@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface CategoryRepository {
     Category save(String name);
     List<Category> listAll();
+    List<Category> listActive();
     Optional<Category> findById(int id);
     PageResult<Category> listPaginated(int page, int pageSize, boolean activeOnly);
     Optional<Category> update(int id, String name);

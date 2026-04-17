@@ -14,6 +14,8 @@ import br.com.nathanfiorito.finances.application.category.usecases.CreateCategor
 import br.com.nathanfiorito.finances.application.category.usecases.DeactivateCategoryUseCase;
 import br.com.nathanfiorito.finances.application.category.usecases.ListCategoriesUseCase;
 import br.com.nathanfiorito.finances.application.category.usecases.UpdateCategoryUseCase;
+import br.com.nathanfiorito.finances.application.invoice.usecases.ExtractInvoiceUseCase;
+import br.com.nathanfiorito.finances.application.invoice.usecases.ImportInvoiceUseCase;
 import br.com.nathanfiorito.finances.application.telegram.usecases.CancelTransactionUseCase;
 import br.com.nathanfiorito.finances.application.telegram.usecases.ChangeCategoryUseCase;
 import br.com.nathanfiorito.finances.application.telegram.usecases.ConfirmTransactionUseCase;
@@ -29,8 +31,11 @@ import br.com.nathanfiorito.finances.application.transaction.usecases.UpdateTran
 import br.com.nathanfiorito.finances.domain.card.ports.CardRepository;
 import br.com.nathanfiorito.finances.domain.card.ports.InvoicePredictionRepository;
 import br.com.nathanfiorito.finances.domain.category.ports.CategoryRepository;
+import br.com.nathanfiorito.finances.domain.invoice.ports.InvoiceExtractorPort;
+import br.com.nathanfiorito.finances.domain.invoice.ports.PdfTextExtractorPort;
 import br.com.nathanfiorito.finances.domain.telegram.ports.NotifierPort;
 import br.com.nathanfiorito.finances.domain.telegram.ports.PendingStatePort;
+import br.com.nathanfiorito.finances.domain.transaction.EstablishmentNormalizer;
 import br.com.nathanfiorito.finances.domain.transaction.ports.LlmPort;
 import br.com.nathanfiorito.finances.domain.transaction.ports.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +53,8 @@ public class UseCaseConfig {
     private final LlmPort llmPort;
     private final NotifierPort notifierPort;
     private final PendingStatePort pendingStatePort;
+    private final InvoiceExtractorPort invoiceExtractorPort;
+    private final PdfTextExtractorPort pdfTextExtractorPort;
 
     @Bean
     public CreateTransactionUseCase createTransactionUseCase() {
@@ -189,5 +196,26 @@ public class UseCaseConfig {
     @Bean
     public ChangeCategoryUseCase changeCategoryUseCase() {
         return new ChangeCategoryUseCase(pendingStatePort, notifierPort);
+    }
+
+    // -------------------------------------------------------------------------
+    // Invoice import use cases
+    // -------------------------------------------------------------------------
+
+    @Bean
+    public EstablishmentNormalizer establishmentNormalizer() {
+        return new EstablishmentNormalizer();
+    }
+
+    @Bean
+    public ExtractInvoiceUseCase extractInvoiceUseCase(EstablishmentNormalizer normalizer) {
+        return new ExtractInvoiceUseCase(
+            pdfTextExtractorPort, categoryRepository, cardRepository,
+            invoiceExtractorPort, transactionRepository, normalizer);
+    }
+
+    @Bean
+    public ImportInvoiceUseCase importInvoiceUseCase() {
+        return new ImportInvoiceUseCase(cardRepository, categoryRepository, transactionRepository);
     }
 }
