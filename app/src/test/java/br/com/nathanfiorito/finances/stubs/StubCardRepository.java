@@ -14,6 +14,10 @@ public class StubCardRepository implements CardRepository {
     private final List<Card> cards = new ArrayList<>();
     private final AtomicInteger nextId = new AtomicInteger(1);
 
+    public void seed(Card card) {
+        cards.add(card);
+    }
+
     @Override
     public Card save(String alias, String bank, String lastFourDigits, int closingDay, int dueDay) {
         Card card = new Card(nextId.getAndIncrement(), alias, bank, lastFourDigits, closingDay, dueDay, true, LocalDateTime.now());
