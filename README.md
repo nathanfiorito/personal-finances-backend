@@ -90,6 +90,8 @@ Flyway runs automatically on startup and applies all migrations in `app/src/main
 | `TELEGRAM_WEBHOOK_SECRET` | Yes | — | Secret string sent by Telegram in `X-Telegram-Bot-Api-Secret-Token` |
 | `TELEGRAM_ALLOWED_CHAT_ID` | Yes | — | Telegram chat ID authorised to interact with the bot |
 | `CORS_ALLOWED_ORIGINS` | No | `http://localhost:3000` | Comma-separated list of allowed CORS origins |
+| `SIGNOZ_OTLP_ENDPOINT` | Yes | — | OTLP/HTTP endpoint for SigNoz (traces + logs). Example: `http://signoz.internal:4318` |
+| `SWAGGER_ENABLED` | No | `false` | Toggle SpringDoc Swagger UI and `/v3/api-docs` |
 
 ---
 
@@ -147,6 +149,28 @@ All routes except `/api/auth/**` and `/webhook` require `Authorization: Bearer <
 | `POST` | `/api/v1/categories` | Create a category |
 | `PATCH` | `/api/v1/categories/{id}` | Update name or active status |
 | `DELETE` | `/api/v1/categories/{id}` | Deactivate a category |
+
+### Credit cards and invoices
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/cards` | List credit cards |
+| `POST` | `/api/v1/cards` | Create a credit card |
+| `GET` | `/api/v1/cards/{id}` | Get a credit card |
+| `PUT` | `/api/v1/cards/{id}` | Update a credit card |
+| `DELETE` | `/api/v1/cards/{id}` | Deactivate a credit card |
+| `GET` | `/api/v1/cards/{cardId}/invoices/current` | Current open invoice for a card |
+| `GET` | `/api/v1/cards/{cardId}/invoices/{year}/{month}` | Historical invoice by year and month |
+| `GET` | `/api/v1/cards/{cardId}/invoices/timeline` | Rolling invoice totals (chart data) |
+| `GET` | `/api/v1/cards/{cardId}/invoices/prediction` | Projected invoice total |
+| `POST` | `/api/v1/cards/{cardId}/invoices/prediction/refresh` | Recompute the projection |
+
+### Invoice import
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/v1/invoices/import/preview` | Upload an invoice PDF (multipart); returns parsed line items without persisting |
+| `POST` | `/api/v1/invoices/import` | Persist a previewed invoice into transactions (application/json) |
 
 ### Reports and export
 
